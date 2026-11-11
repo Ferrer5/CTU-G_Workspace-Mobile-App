@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-12 — Phase 1 follow-up corrections
+
+- Initial foundation commit: `c288b12`.
+- Corrected the stale foundation changelog entry and recorded this follow-up.
+- Ignored `.vscode/` because local editor configuration is machine-specific;
+  shared launch configurations can be committed deliberately later with an
+  explicit `!` exception.
+- Updated the package description to `CTU-G Workspace mobile client for
+  Android.`; no dependency or version changed.
+- Runtime verification status: **PENDING VERIFICATION**; the existing
+  `emulator-5554` was last observed offline. Android Studio UI integration is
+  also pending verification.
+
 ## 2026-11-12 — Phase 1 foundation
 
 - Created an independent Android Flutter project `ctug_mobile` with
@@ -20,4 +33,4 @@
   existing emulator offline.
 - `.vscode` was an allowed-but-optional entry; the folder was empty before
   creation, and no files were deleted.
-- Backend changes: none. Commit: not created; explicit approval is required.
+- Backend changes: none.
