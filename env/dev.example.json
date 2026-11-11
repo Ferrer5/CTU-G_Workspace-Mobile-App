@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "development",
+  "API_BASE_URL": "https://example.invalid/api/v1/",
+  "LOG_LEVEL": "debug"
+}

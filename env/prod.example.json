@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "production",
+  "API_BASE_URL": "https://example.invalid/api/v1/",
+  "LOG_LEVEL": "warning"
+}
