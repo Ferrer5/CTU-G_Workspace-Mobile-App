@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-12 — Phase 3 inspection documentation
+
+- Added backend API, authentication, role/permission, mobile API contract,
+  backend proposal, proposed ADR-005, and Phase 3 evidence documentation.
+- Recorded verified source facts separately from proposals and unresolved
+  decisions. Documentation only; no application code, dependency, manifest
+  or backend change; not pushed.
+- Mobile authentication remains a proposal conditional on SRS approval and a
+  separately approved, not-yet-designed isolated spike.
+
 ## 2026-11-12 — Phase 2 network audit
 
 - Added emulator/device development network examples and a test that validates
