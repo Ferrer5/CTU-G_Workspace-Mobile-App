@@ -19,7 +19,7 @@ business feature implementation.
 - Git 2.52.0; Android Gradle Plugin 9.1.0; Gradle 9.3.1.
 - `flutter doctor -v` reported the Android toolchain usable. Its Visual Studio
   warning concerns Windows desktop development, not this Android-only app.
-- The project has not been opened and verified in Android Studio.
+- Android Studio project integration has not been verified.
 - Repository location: `C:\Users\Janrey\CTU-G_Workspace Mobile App`.
 
 ## Prerequisites
@@ -103,8 +103,15 @@ complete layer map and conventions.
   those files were left unchanged under an explicitly approved Phase 1
   exception. No networking code exists. The built release manifest was not
   inspected, so its permission status is **not verified**.
-- The pre-existing `Medium_Phone` emulator was launched, but ADB reported it
-  offline. Runtime UI verification is pending; no app launch is claimed.
+- The pre-existing `Medium_Phone` emulator's debug runtime was verified:
+  `flutter run -d emulator-5554 --dart-define-from-file=env/dev.json
+  --no-resident` built, installed, and launched successfully; the app process
+  remained present with the same PID after 30 seconds, and the captured logcat
+  had none of the checked Flutter/app crash markers. The user had previously
+  confirmed the screen showed “CTU-G”, “App initialized”, and “development”
+  with the debug banner; the agent did not visually inspect the screen.
+- Android Studio project integration remains unverified. The built release
+  manifest's `INTERNET` permission status remains unverified.
 - The starter theme is not final branding. Production URLs and device
   certificate strategy remain undecided.
 
