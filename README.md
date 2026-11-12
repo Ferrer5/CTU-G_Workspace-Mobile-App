@@ -93,6 +93,10 @@ flutter build apk --debug
 See [Project Structure](docs/architecture/PROJECT_STRUCTURE.md) for the
 complete layer map and conventions.
 
+For development-only emulator/network guidance and the Phase 2 connectivity
+limitations, see [Network Setup](docs/setup/NETWORK_SETUP.md) and
+[Network Architecture](docs/architecture/NETWORK_ARCHITECTURE.md).
+
 ## Known limitations and permission note
 
 - There is no authentication, network client, HTTP dependency, backend call,

@@ -1,8 +1,55 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ctug_mobile/core/config/app_config.dart';
 
 void main() {
   group('AppConfig.fromValues', () {
+    test('validates every tracked environment example', () async {
+      final examples =
+          Directory('env')
+              .listSync()
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.example.json'))
+              .toList()
+            ..sort((left, right) => left.path.compareTo(right.path));
+
+      expect(examples, isNotEmpty);
+
+      for (final example in examples) {
+        final values = Map<String, dynamic>.from(
+          jsonDecode(await example.readAsString()) as Map,
+        );
+        final appEnv = values['APP_ENV'] as String;
+        final apiBaseUrl = values['API_BASE_URL'] as String;
+        final logLevel = values['LOG_LEVEL'] as String;
+
+        if (appEnv == 'production') {
+          expect(
+            () => AppConfig.fromValues(
+              appEnv: appEnv,
+              apiBaseUrl: apiBaseUrl,
+              logLevel: logLevel,
+            ),
+            throwsA(isA<AppConfigException>()),
+            reason: '${example.path} should not accept a placeholder host',
+          );
+          continue;
+        }
+
+        final config = AppConfig.fromValues(
+          appEnv: appEnv,
+          apiBaseUrl: apiBaseUrl,
+          logLevel: logLevel,
+        );
+
+        expect(config.environment, Environment.parse(appEnv));
+        expect(config.apiBaseUrl.toString(), apiBaseUrl);
+        expect(config.logLevel, LogLevel.parse(logLevel));
+      }
+    });
+
     test('creates a development configuration', () {
       final config = AppConfig.fromValues(
         appEnv: 'development',

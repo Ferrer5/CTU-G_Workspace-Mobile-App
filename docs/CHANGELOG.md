@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-12 — Phase 2 network audit
+
+- Added emulator/device development network examples and a test that validates
+  every tracked environment example through `AppConfig.fromValues`, including
+  rejection of the production placeholder.
+- Documented the live backend integration audit, development network
+  architecture, runbook, and ADR-004. No backend, network-client, manifest,
+  firewall, or authentication changes were made.
+- Stage A: T1, T2, T3, and T5 passed. T6 through `adb reverse` is recorded as
+  failed/inconclusive with cause undetermined and method-limited; the
+  temporary reverse mapping was removed. T4/T7 were blocked because the active
+  Wi-Fi profile was Public; T8 was not tested because no physical phone was
+  available.
+- The user reported accidentally starting an additional loopback Django
+  `StatReloader` instance after T1; both processes were stopped before
+  approved Stage A checks. That unapproved instance may have written ignored
+  `__pycache__` files in the protected repository; their presence was not
+  verified. The final protected-repository check did not inspect ignored files.
+- The user also reports viewing Django admin pages in their own browser
+  outside the test plan at about 14:49–14:50. Only GETs were observed and the
+  user reports making no admin changes; possible session/audit-log side effects
+  were not verified. These requests are not Phase 2 test evidence.
+- Django `DEBUG=True` produced a detailed invalid-Host error page; this
+  reinforces keeping the development server loopback-only.
+- The built release manifest permission status remains unverified.
+
 ## 2026-11-12 — Phase 1 runtime verification
 
 - Verified a debug build, installation, and launch on the existing

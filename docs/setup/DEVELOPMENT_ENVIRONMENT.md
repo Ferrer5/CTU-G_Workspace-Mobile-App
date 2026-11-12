@@ -1,5 +1,10 @@
 # Development Environment
 
+For emulator connectivity, the host/backend boundary, and the Phase 2 test
+results, see [Network Setup](NETWORK_SETUP.md),
+[Network Architecture](../architecture/NETWORK_ARCHITECTURE.md), and the
+[Phase 2 Test Report](../testing/PHASE-2-TEST-REPORT.md).
+
 ## Verified on 2026-11-12
 
 | Tool | Observed |

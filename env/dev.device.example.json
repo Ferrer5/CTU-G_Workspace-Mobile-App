@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "development",
+  "API_BASE_URL": "http://192.0.2.10:8000/api/v1/",
+  "LOG_LEVEL": "debug"
+}
