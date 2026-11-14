@@ -50,6 +50,16 @@ void main() {
       }
     });
 
+    test('sandbox example targets the API v1 root', () async {
+      final values = Map<String, dynamic>.from(
+        jsonDecode(await File('env/sandbox.example.json').readAsString())
+            as Map,
+      );
+      final apiBaseUrl = Uri.parse(values['API_BASE_URL'] as String);
+
+      expect(apiBaseUrl.path, '/api/v1/');
+    });
+
     test('creates a development configuration', () {
       final config = AppConfig.fromValues(
         appEnv: 'development',
