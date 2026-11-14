@@ -4,6 +4,42 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('persisted cookies are isolated by API host and port', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    const secureStorage = FlutterSecureStorage();
+    final sandboxUri = Uri.parse('http://127.0.0.1:8001/api/v1/');
+    final realUri = Uri.parse('http://127.0.0.1:8000/api/v1/');
+    final sandboxStorage = SecureCookieStorage(
+      secureStorage: secureStorage,
+      keyPrefix: SecureCookieStorage.keyPrefixFor(sandboxUri),
+    );
+    final realStorage = SecureCookieStorage(
+      secureStorage: secureStorage,
+      keyPrefix: SecureCookieStorage.keyPrefixFor(realUri),
+    );
+    final sandboxJar = PersistCookieJar(
+      persistSession: true,
+      storage: sandboxStorage,
+    );
+    final realJar = PersistCookieJar(
+      persistSession: true,
+      storage: realStorage,
+    );
+    await sandboxJar.saveFromResponse(sandboxUri, [
+      Cookie('sessionid', 'sandbox-session')..path = '/',
+    ]);
+
+    expect(await realJar.loadForRequest(realUri), isEmpty);
+
+    await realJar.saveFromResponse(realUri, [
+      Cookie('sessionid', 'real-session')..path = '/',
+    ]);
+    expect(
+      (await sandboxJar.loadForRequest(sandboxUri)).single.value,
+      'sandbox-session',
+    );
+  });
+
   test(
     'PersistCookieJar reloads session cookies from secure storage',
     () async {

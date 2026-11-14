@@ -11,6 +11,42 @@ import 'package:flutter_test/flutter_test.dart';
 import '../auth_test_support.dart';
 
 void main() {
+  test('uses the CSRF cookie set by the latest bootstrap response', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      final path = request.options.uri.path;
+      if (path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked-csrf-token'},
+          headers: {
+            'set-cookie': ['csrftoken=real-csrf-token; Path=/'],
+          },
+        );
+      }
+      if (path.endsWith('/login/')) {
+        expect(request.options.headers['X-CSRFToken'], 'real-csrf-token');
+        return jsonResponse({
+          'authenticated': true,
+          'account': {
+            'school_id': '1234567',
+            'roles': ['Student'],
+          },
+          'permissions': [],
+        });
+      }
+      fail('Unexpected endpoint');
+    });
+    final transport = createMockTransport(adapter);
+    final uri = Uri.parse('https://auth.example.test/api/v1/');
+    await transport.jar.saveFromResponse(uri, [
+      Cookie('ctug_review_sandbox_csrf', 'stale-sandbox-csrf')..path = '/',
+    ]);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    await client.login(schoolId: '1234567', password: 'secret');
+
+    client.close();
+  });
+
   test(
     'uses JSON, bootstraps CSRF once, and reads the rotated cookie per POST',
     () async {

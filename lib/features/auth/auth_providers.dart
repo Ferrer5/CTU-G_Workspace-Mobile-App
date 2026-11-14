@@ -10,14 +10,15 @@ import 'data/auth_repository.dart';
 import 'data/secure_cookie_storage.dart';
 
 final authApiClientProvider = Provider<AuthApiClient>((ref) {
+  final baseUrl = ref.watch(appConfigProvider).apiBaseUrl;
   final jar = PersistCookieJar(
     persistSession: true,
-    storage: SecureCookieStorage(secureStorage: const FlutterSecureStorage()),
+    storage: SecureCookieStorage(
+      secureStorage: const FlutterSecureStorage(),
+      keyPrefix: SecureCookieStorage.keyPrefixFor(baseUrl),
+    ),
   );
-  final client = createAuthApiClient(
-    baseUrl: ref.watch(appConfigProvider).apiBaseUrl,
-    cookieJar: jar,
-  );
+  final client = createAuthApiClient(baseUrl: baseUrl, cookieJar: jar);
   ref.onDispose(client.close);
   return client;
 });

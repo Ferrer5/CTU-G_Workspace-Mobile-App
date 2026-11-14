@@ -31,6 +31,7 @@ class AuthApiClient {
   final CookieJar cookieJar;
   bool _csrfReady = false;
   Future<void>? _csrfBootstrap;
+  String? _latestBootstrapCsrfCookieName;
 
   Future<AuthenticatedAccount> login({
     required String schoolId,
@@ -84,6 +85,7 @@ class AuthApiClient {
     await cookieJar.deleteAll();
     _csrfReady = false;
     _csrfBootstrap = null;
+    _latestBootstrapCsrfCookieName = null;
   }
 
   void close() => dio.close(force: true);
@@ -123,6 +125,17 @@ class AuthApiClient {
         (response.body['csrfToken'] as String).isEmpty) {
       throw const InvalidApiResponseFailure();
     }
+    _latestBootstrapCsrfCookieName = null;
+    for (final header in response.setCookieHeaders) {
+      final separator = header.indexOf('=');
+      if (separator <= 0) {
+        continue;
+      }
+      final name = header.substring(0, separator).trim();
+      if (_csrfCookieNames.contains(name)) {
+        _latestBootstrapCsrfCookieName = name;
+      }
+    }
     await _readCurrentCsrfCookie();
   }
 
@@ -130,6 +143,15 @@ class AuthApiClient {
     final cookies = await cookieJar.loadForRequest(
       Uri.parse(dio.options.baseUrl),
     );
+    final preferredName = _latestBootstrapCsrfCookieName;
+    if (preferredName != null) {
+      for (final cookie in cookies) {
+        if (cookie.name == preferredName && cookie.value.isNotEmpty) {
+          return cookie;
+        }
+      }
+      throw const MissingCsrfCookieFailure();
+    }
     for (final cookie in cookies) {
       if (_csrfCookieNames.contains(cookie.name) && cookie.value.isNotEmpty) {
         return cookie;
@@ -173,7 +195,11 @@ class AuthApiClient {
     if (decoded is! Map<String, dynamic>) {
       throw const InvalidApiResponseFailure();
     }
-    return _ApiResponse(statusCode, decoded);
+    return _ApiResponse(
+      statusCode,
+      decoded,
+      response.headers['set-cookie'] ?? const [],
+    );
   }
 
   Object? _decodeJsonResponse(Response<dynamic> response) {
@@ -233,10 +259,11 @@ class AuthApiClient {
 }
 
 class _ApiResponse {
-  const _ApiResponse(this.statusCode, this.body);
+  const _ApiResponse(this.statusCode, this.body, this.setCookieHeaders);
 
   final int statusCode;
   final Map<String, dynamic> body;
+  final List<String> setCookieHeaders;
 }
 
 AuthApiClient createAuthApiClient({

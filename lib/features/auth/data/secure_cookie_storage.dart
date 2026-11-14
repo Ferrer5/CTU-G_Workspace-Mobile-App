@@ -2,10 +2,10 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureCookieStorage extends Storage {
-  SecureCookieStorage({
-    required this.secureStorage,
-    this.keyPrefix = 'ctug.auth.cookies.',
-  });
+  SecureCookieStorage({required this.secureStorage, required this.keyPrefix});
+
+  static String keyPrefixFor(Uri apiBaseUrl) =>
+      'ctug.auth.cookies.${Uri.encodeComponent('${apiBaseUrl.host}:${apiBaseUrl.port}')}.';
 
   final FlutterSecureStorage secureStorage;
   final String keyPrefix;
