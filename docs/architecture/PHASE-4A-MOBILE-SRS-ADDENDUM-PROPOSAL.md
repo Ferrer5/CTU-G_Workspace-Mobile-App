@@ -2,12 +2,12 @@
 
 ## Status
 
-**Status:** PROPOSED / NOT APPROVED
+**Status:** APPROVED by project owner on 2026-11-14
 
 ## To
 
-Project owner: [YOUR NAME]  
-Additional reviewer: [TEACHER NAME]  
+Project owner: Janrey Ferrer  
+Additional reviewer: Glicerio Baguia (approval: given on 2026-11-14)  
 Approval evidence: signed line in this addendum and a dated message from the instructor saved in the project docs
 
 ## Purpose
@@ -56,7 +56,7 @@ The undersigned approve the following Phase 4A mobile addendum if this proposal 
 
 ## Signatures
 
-- Project owner: _________________________________
+- Project owner: Janrey Ferrer, 2026-11-14, approved by instruction in chat
 - Course instructor / reviewer: _________________________________
 - Date: __________________________________________
 
