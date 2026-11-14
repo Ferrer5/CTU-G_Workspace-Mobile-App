@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-14 — Phase 4 authentication wrap-up
+
+- Added the short mobile authentication reference and verified release APK
+  permissions/network configuration; analysis and all 57 Flutter tests passed.
+- Added an explicit pending-account generic-message widget test. Real-server
+  Sign Up, pending-account, and rate-limit checks remain unverified.
+
 ## 2026-11-14 — Phase 4A reference snapshot and approval-scoping docs
 
 - Copied the approved backend reference set verbatim into `docs/reference/backend/` and verified SHA-256 matches for each file.
