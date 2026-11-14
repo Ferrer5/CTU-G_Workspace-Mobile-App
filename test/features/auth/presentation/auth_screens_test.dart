@@ -236,6 +236,31 @@ void main() {
     });
   }
 
+  testWidgets('sign-in uses generic copy for a pending account response', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..loginFailure = const BackendAuthFailure(
+        statusCode: 401,
+        code: 'invalid_credentials',
+        message: 'This account is pending approval.',
+      );
+    await tester.pumpWidget(_app(const SignInScreen(), repository));
+    await _enter(tester, 'schoolId', '1234567');
+    await _enter(tester, 'password', 'password');
+    await tester.tap(find.byKey(const Key('signInSubmit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'We could not sign you in with those details. '
+        'Check your School ID and password.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('This account is pending approval.'), findsNothing);
+  });
+
   testWidgets('sign-up validates serializer fields and matching passwords', (
     tester,
   ) async {
