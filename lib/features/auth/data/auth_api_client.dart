@@ -77,10 +77,14 @@ class AuthApiClient {
     if (response.statusCode != 200 || response.body['authenticated'] != false) {
       throw const InvalidApiResponseFailure();
     }
-    await cookieJar.deleteAll();
+    await clearCookies();
   }
 
-  Future<void> clearCookies() => cookieJar.deleteAll();
+  Future<void> clearCookies() async {
+    await cookieJar.deleteAll();
+    _csrfReady = false;
+    _csrfBootstrap = null;
+  }
 
   void close() => dio.close(force: true);
 

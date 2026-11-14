@@ -93,6 +93,122 @@ void main() {
     },
   );
 
+  test('login after logout bootstraps a fresh CSRF cookie', () async {
+    var bootstrapCount = 0;
+    var loginCount = 0;
+    final adapter = ScriptedHttpAdapter((request) async {
+      final path = request.options.uri.path;
+      if (path.endsWith('/csrf/')) {
+        bootstrapCount++;
+        return jsonResponse(
+          {'csrfToken': 'masked-$bootstrapCount'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-$bootstrapCount; Path=/'],
+          },
+        );
+      }
+      if (path.endsWith('/login/')) {
+        loginCount++;
+        expect(
+          request.options.headers['X-CSRFToken'],
+          loginCount == 1 ? 'csrf-1' : 'csrf-2',
+        );
+        return jsonResponse(
+          {
+            'authenticated': true,
+            'account': {
+              'school_id': '1234567',
+              'roles': ['Student'],
+            },
+            'permissions': [],
+          },
+          headers: {
+            'set-cookie': [
+              'csrftoken=csrf-rotated-$loginCount; Path=/',
+              'sessionid=session-$loginCount; Path=/',
+            ],
+          },
+        );
+      }
+      if (path.endsWith('/logout/')) {
+        expect(request.options.headers['X-CSRFToken'], 'csrf-rotated-1');
+        return jsonResponse({'authenticated': false});
+      }
+      fail('Unexpected endpoint');
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    await client.login(schoolId: '1234567', password: 'secret');
+    await client.logout();
+    await client.login(schoolId: '1234567', password: 'secret');
+
+    expect(bootstrapCount, 2);
+    expect(loginCount, 2);
+    client.close();
+  });
+
+  test(
+    'login after unauthenticated session restoration reboots CSRF',
+    () async {
+      var bootstrapCount = 0;
+      var loginCount = 0;
+      final adapter = ScriptedHttpAdapter((request) async {
+        final path = request.options.uri.path;
+        if (path.endsWith('/csrf/')) {
+          bootstrapCount++;
+          return jsonResponse(
+            {'csrfToken': 'masked-$bootstrapCount'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-$bootstrapCount; Path=/'],
+            },
+          );
+        }
+        if (path.endsWith('/login/')) {
+          loginCount++;
+          expect(
+            request.options.headers['X-CSRFToken'],
+            loginCount == 1 ? 'csrf-1' : 'csrf-2',
+          );
+          return jsonResponse(
+            {
+              'authenticated': true,
+              'account': {
+                'school_id': '1234567',
+                'roles': ['Student'],
+              },
+              'permissions': [],
+            },
+            headers: {
+              'set-cookie': [
+                'csrftoken=csrf-rotated-$loginCount; Path=/',
+                'sessionid=session-$loginCount; Path=/',
+              ],
+            },
+          );
+        }
+        if (path.endsWith('/session/')) {
+          return jsonResponse({'authenticated': false});
+        }
+        fail('Unexpected endpoint');
+      });
+      final transport = createMockTransport(adapter);
+      final client = AuthApiClient(
+        dio: transport.dio,
+        cookieJar: transport.jar,
+      );
+      final repository = AuthRepository(client);
+
+      await repository.login(schoolId: '1234567', password: 'secret');
+      expect(await repository.restoreSession(), isNull);
+      await repository.login(schoolId: '1234567', password: 'secret');
+
+      expect(bootstrapCount, 2);
+      expect(loginCount, 2);
+      client.close();
+    },
+  );
+
   test(
     'registration sends exactly the serializer field set and accepts 202',
     () async {
