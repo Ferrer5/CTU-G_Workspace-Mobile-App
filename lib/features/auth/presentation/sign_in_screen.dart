@@ -52,11 +52,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return;
       }
       final state = ref.read(authControllerProvider);
-      setState(() {
-        _feedback = state.status == AuthStatus.authenticated
-            ? 'Sign-in successful.'
-            : _signInFailureMessage(state.failure);
-      });
+      if (state.status != AuthStatus.authenticated) {
+        setState(() => _feedback = _signInFailureMessage(state.failure));
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

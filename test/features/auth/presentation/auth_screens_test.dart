@@ -182,7 +182,7 @@ void main() {
 
     repository.pendingLogin!.complete(_FakeAuthRepository.account);
     await tester.pumpAndSettle();
-    expect(find.text('Sign-in successful.'), findsOneWidget);
+    expect(find.text('Sign-in successful.'), findsNothing);
   });
 
   final signInFailures = <(AuthFailure, String)>[

@@ -7,10 +7,26 @@ import '../domain/registration_request.dart';
 import 'auth_state.dart';
 
 class AuthController extends Notifier<AuthState> {
+  Future<void>? _restoreSessionOperation;
+
   @override
   AuthState build() => const AuthState.restoring();
 
-  Future<void> restoreSession() async {
+  Future<void> restoreSession() {
+    final operation = _restoreSessionOperation;
+    if (operation != null) {
+      return operation;
+    }
+    final restore = _restoreSession();
+    _restoreSessionOperation = restore;
+    return restore.whenComplete(() {
+      if (identical(_restoreSessionOperation, restore)) {
+        _restoreSessionOperation = null;
+      }
+    });
+  }
+
+  Future<void> _restoreSession() async {
     state = const AuthState.restoring();
     try {
       final account = await ref.read(authRepositoryProvider).restoreSession();

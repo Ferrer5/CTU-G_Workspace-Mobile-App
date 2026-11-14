@@ -4,11 +4,13 @@ class AuthScreenHeader extends StatelessWidget {
   const AuthScreenHeader({
     required this.title,
     required this.subtitle,
+    this.showRequiredNote = true,
     super.key,
   });
 
   final String title;
   final String subtitle;
+  final bool showRequiredNote;
 
   @override
   Widget build(BuildContext context) {
@@ -58,11 +60,13 @@ class AuthScreenHeader extends StatelessWidget {
             height: 1.45,
           ),
         ),
-        const SizedBox(height: 6),
-        const Text(
-          '* Fields marked are required.',
-          style: TextStyle(color: Colors.white60, fontSize: 12),
-        ),
+        if (showRequiredNote) ...[
+          const SizedBox(height: 6),
+          const Text(
+            '* Fields marked are required.',
+            style: TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+        ],
       ],
     );
   }
