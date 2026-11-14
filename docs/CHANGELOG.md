@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-14 — Phase 4A reference snapshot and approval-scoping docs
+
+- Copied the approved backend reference set verbatim into `docs/reference/backend/` and verified SHA-256 matches for each file.
+- Added `docs/reference/backend/README.md` documenting the original repository, source commit, copy date, allowed usage, and the requirement to re-verify backend contracts before implementation.
+- Added the Phase 4A feasibility, decision, backend requirements, and spike test-plan documents under `docs/testing/` and `docs/architecture/`.
+- Added the mobile SRS addendum proposal to support explicit approval before any mobile auth implementation or isolated backend test is authorized.
+- Documentation only; no backend change, dependency change, Android manifest change, or Flutter implementation was made.
+
 ## 2026-11-12 — Phase 3 inspection documentation
 
 - Added backend API, authentication, role/permission, mobile API contract,
