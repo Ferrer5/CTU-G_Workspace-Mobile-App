@@ -17,11 +17,15 @@ class AuthScreenHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            Image.asset(
-              'assets/images/ctug-logo.png',
-              width: 50,
-              height: 50,
-              fit: BoxFit.cover,
+            ClipRRect(
+              key: const Key('authBrandLogo'),
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/images/ctug-logo.png',
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+              ),
             ),
             const SizedBox(width: 11),
             const Text(

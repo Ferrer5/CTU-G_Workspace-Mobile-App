@@ -93,6 +93,34 @@ Future<void> _submitSignUp(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('sign-in brand header is top-aligned with a rounded logo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const SignInScreen(), _FakeAuthRepository()));
+
+    expect(tester.getTopLeft(find.text('CTU-G WORKSPACE')).dy, lessThan(70));
+    expect(
+      tester
+          .widget<ClipRRect>(find.byKey(const Key('authBrandLogo')))
+          .borderRadius,
+      BorderRadius.circular(12),
+    );
+  });
+
+  testWidgets('sign-up brand header is top-aligned with a rounded logo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const SignUpScreen(), _FakeAuthRepository()));
+
+    expect(tester.getTopLeft(find.text('CTU-G WORKSPACE')).dy, lessThan(70));
+    expect(
+      tester
+          .widget<ClipRRect>(find.byKey(const Key('authBrandLogo')))
+          .borderRadius,
+      BorderRadius.circular(12),
+    );
+  });
+
   testWidgets(
     'sign-in validates required fields and toggles password visibility',
     (tester) async {
