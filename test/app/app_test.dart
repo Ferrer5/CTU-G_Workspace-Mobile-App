@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ctug_mobile/app/app.dart';
@@ -5,7 +6,7 @@ import 'package:ctug_mobile/app/providers.dart';
 import 'package:ctug_mobile/core/config/app_config.dart';
 
 void main() {
-  testWidgets('shows the initialized startup screen', (tester) async {
+  testWidgets('opens the sign-in screen by default', (tester) async {
     final config = AppConfig.fromValues(
       appEnv: 'development',
       apiBaseUrl: 'https://example.invalid/api/v1/',
@@ -19,9 +20,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('CTU-G'), findsOneWidget);
-    expect(find.text('App initialized'), findsOneWidget);
-    expect(find.text('development'), findsOneWidget);
+    expect(find.text('CTU-G WORKSPACE'), findsOneWidget);
+    expect(find.byKey(const Key('schoolId')), findsOneWidget);
+    expect(find.byKey(const Key('signInSubmit')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

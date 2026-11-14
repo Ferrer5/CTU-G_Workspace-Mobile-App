@@ -19,7 +19,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appConfigProvider.overrideWithValue(config)],
-        child: MaterialApp.router(routerConfig: buildRouter()),
+        child: MaterialApp.router(
+          routerConfig: buildRouter(initialLocation: '/'),
+        ),
       ),
     );
     await tester.pumpAndSettle();
