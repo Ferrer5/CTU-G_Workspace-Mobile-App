@@ -96,6 +96,10 @@ session/CSRF checks enabled for every option.
   Project owner and backend maintainer must approve backend settings; owner must
   separately approve firewall/mobile changes. School network use also needs
   school IT approval and is not the recommended demo path.
+- **Owner-approved phone-hotspot record (2026-11-15):** No backend file was
+  changed in this repo. The backend ran with an external settings module
+  (outside this repo) that sets `ALLOWED_HOSTS`, with the server bound to
+  `0.0.0.0:8000`.
 
 ### 3. Hosted HTTPS — recommended for real use
 
