@@ -112,6 +112,11 @@ session/CSRF checks enabled for every option.
 - **Mobile:** release `API_BASE_URL=https://<api-domain>/api/v1/`; do not allow
   cleartext in release builds. The emailed reset link remains a browser flow;
   no in-app token entry or deep link is proposed.
+- **Hosted HTTPS CSRF:** Django validates an `Origin` or, if absent, a `Referer`
+  on HTTPS unsafe requests; the mobile HTTP client sends neither by default.
+  The hosted option proposes sending `Origin: https://<api-domain>` and adding
+  the matching origin to backend `CSRF_TRUSTED_ORIGINS`; to be verified in an
+  isolated test.
 - **Risk / approval:** hosting, DNS, TLS/proxy configuration, secure cookies,
   CSRF Origin/Referer behavior, and email delivery need deployment/security
   verification. Project owner, instructor/reviewer, backend maintainer, and
