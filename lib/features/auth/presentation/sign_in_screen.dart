@@ -154,6 +154,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       return null;
                     },
                   ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      key: const Key('forgotPasswordLink'),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => context.go('/forgot-password'),
+                      child: const Text(
+                        'Forgot password?',
+                        style: TextStyle(color: Color(0xFF9BE2AA)),
+                      ),
+                    ),
+                  ),
                   if (_feedback != null) ...[
                     const SizedBox(height: 17),
                     AuthFeedback(message: _feedback!),

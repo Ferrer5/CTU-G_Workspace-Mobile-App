@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-15 — Phase 5 password-recovery request
+
+- Added the public forgot-password request screen, CSRF-protected API request,
+  neutral response handling, and mocked API, validation, and route tests.
+- Recovery links continue in the browser; no in-app reset, deep link, backend,
+  package, or Android changes were made.
+- Validation: `flutter analyze` passed; `flutter test` passed all 76 tests.
+
 ## 2026-11-14 — Phase 4 authentication wrap-up
 
 - Added the short mobile authentication reference and verified release APK

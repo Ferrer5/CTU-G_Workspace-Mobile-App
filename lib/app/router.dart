@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/application/auth_state.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/auth/presentation/authenticated_landing_screen.dart';
+import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
 import 'startup_screen.dart';
@@ -27,11 +28,14 @@ GoRouter buildRouter({
     redirect: (context, state) {
       final path = state.uri.path;
       final authState = readAuthState();
-      final isPublicRoute = path == '/sign-in' || path == '/sign-up';
+      final isPublicRoute =
+          path == '/sign-in' ||
+          path == '/sign-up' ||
+          path == '/forgot-password';
 
       switch (authState.status) {
         case AuthStatus.restoring:
-          return path == '/' ? null : '/';
+          return path == '/' || path == '/forgot-password' ? null : '/';
         case AuthStatus.authenticated:
           return path == '/home' ? null : '/home';
         case AuthStatus.unauthenticated:
@@ -58,6 +62,10 @@ GoRouter buildRouter({
       GoRoute(
         path: '/sign-up',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/home',

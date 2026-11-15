@@ -25,6 +25,7 @@ class AuthApiClient {
   static const loginPath = 'auth/login/';
   static const logoutPath = 'auth/logout/';
   static const sessionPath = 'auth/session/';
+  static const passwordResetRequestPath = 'auth/forgot-password/';
   static const _csrfCookieNames = {'csrftoken', 'ctug_review_sandbox_csrf'};
 
   final Dio dio;
@@ -56,6 +57,20 @@ class AuthApiClient {
       throw const InvalidApiResponseFailure();
     }
     return RegistrationAcknowledgement(message);
+  }
+
+  Future<void> requestPasswordReset({
+    required String schoolId,
+    required String email,
+  }) async {
+    final response = await _post(passwordResetRequestPath, {
+      'school_id': schoolId,
+      'email': email,
+    });
+    final message = response.body['message'];
+    if (response.statusCode != 202 || message is! String || message.isEmpty) {
+      throw const InvalidApiResponseFailure();
+    }
   }
 
   Future<AuthenticatedAccount?> currentSession() async {
@@ -99,7 +114,10 @@ class AuthApiClient {
       'POST',
       path,
       body: body,
-      headers: {'X-CSRFToken': csrfCookie.value},
+      headers: {
+        'X-CSRFToken': csrfCookie.value,
+        'Origin': Uri.parse(dio.options.baseUrl).origin,
+      },
     );
   }
 
@@ -187,7 +205,7 @@ class AuthApiClient {
       throw const InvalidApiResponseFailure();
     }
     if (statusCode >= 400) {
-      if ({400, 401, 403, 429, 503}.contains(statusCode)) {
+      if ({400, 401, 403, 429}.contains(statusCode) || statusCode >= 500) {
         throw _parseBackendFailure(statusCode, decoded);
       }
       throw const InvalidApiResponseFailure();

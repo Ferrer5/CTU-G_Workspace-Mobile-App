@@ -102,6 +102,47 @@ void main() {
     expect(find.byKey(const Key('signInSubmit')), findsOneWidget);
   });
 
+  testWidgets('forgot-password is public and linked from sign-in', (
+    tester,
+  ) async {
+    final repository = TestAuthRepository();
+    final container = _container(repository);
+    addTearDown(container.dispose);
+    final router = container.read(appRouterProvider);
+
+    await tester.pumpWidget(_app(container, router));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('signInSubmit')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('forgotPasswordSubmit')), findsOneWidget);
+    expect(find.byKey(const Key('recoverySchoolId')), findsOneWidget);
+    expect(find.byKey(const Key('recoveryEmail')), findsOneWidget);
+  });
+
+  testWidgets('forgot-password deep link survives unauthenticated restore', (
+    tester,
+  ) async {
+    final restoration = Completer<AuthenticatedAccount?>();
+    final repository = TestAuthRepository(
+      restoreHandler: () => restoration.future,
+    );
+    final container = _container(repository);
+    addTearDown(container.dispose);
+    final router = container.read(appRouterProvider);
+
+    await tester.pumpWidget(_app(container, router));
+    await tester.pump();
+    router.go('/forgot-password');
+    await tester.pump();
+    expect(find.byKey(const Key('forgotPasswordSubmit')), findsOneWidget);
+
+    restoration.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('forgotPasswordSubmit')), findsOneWidget);
+  });
+
   testWidgets('shows a recoverable restore error and retries successfully', (
     tester,
   ) async {

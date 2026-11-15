@@ -15,6 +15,11 @@ class AuthRepository {
   Future<RegistrationAcknowledgement> register(RegistrationRequest request) =>
       _apiClient.register(request);
 
+  Future<void> requestPasswordReset({
+    required String schoolId,
+    required String email,
+  }) => _apiClient.requestPasswordReset(schoolId: schoolId, email: email);
+
   Future<AuthenticatedAccount?> restoreSession() async {
     final account = await _apiClient.currentSession();
     if (account == null) {

@@ -301,6 +301,155 @@ void main() {
     },
   );
 
+  test(
+    'forgot-password sends exactly its contract with CSRF and API Origin',
+    () async {
+      final adapter = ScriptedHttpAdapter((request) async {
+        final path = request.options.uri.path;
+        if (path.endsWith('/csrf/')) {
+          return jsonResponse(
+            {'csrfToken': 'masked'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-value; Path=/'],
+            },
+          );
+        }
+        expect(path, endsWith('/forgot-password/'));
+        expect(request.options.method, 'POST');
+        expect(request.options.headers['X-CSRFToken'], 'csrf-value');
+        expect(request.options.headers['Origin'], 'https://auth.example.test');
+        expect(
+          (jsonDecode(request.body!) as Map<String, dynamic>).keys.toSet(),
+          {'school_id', 'email'},
+        );
+        expect(jsonDecode(request.body!), {
+          'school_id': '1234567',
+          'email': 'user@example.edu',
+        });
+        return jsonResponse({
+          'message': 'If the account details match an eligible account, a password reset email will be sent.',
+        }, statusCode: 202);
+      });
+      final transport = createMockTransport(adapter);
+      final client = AuthApiClient(
+        dio: transport.dio,
+        cookieJar: transport.jar,
+      );
+
+      await client.requestPasswordReset(
+        schoolId: '1234567',
+        email: 'user@example.edu',
+      );
+
+      expect(adapter.requests.map((request) => request.options.uri.path), [
+        '/api/v1/auth/csrf/',
+        '/api/v1/auth/forgot-password/',
+      ]);
+      client.close();
+    },
+  );
+
+  for (final (status, code) in [
+    (400, 'validation_error'),
+    (429, 'throttled'),
+    (500, 'auth_unavailable'),
+    (503, 'recovery_disabled'),
+  ]) {
+    test('forgot-password maps HTTP $status to a backend failure', () async {
+      final adapter = ScriptedHttpAdapter((request) async {
+        if (request.options.uri.path.endsWith('/csrf/')) {
+          return jsonResponse(
+            {'csrfToken': 'masked'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-value; Path=/'],
+            },
+          );
+        }
+        return jsonResponse({
+          'error': {'code': code, 'message': 'Sensitive backend wording'},
+        }, statusCode: status);
+      });
+      final transport = createMockTransport(adapter);
+      final client = AuthApiClient(
+        dio: transport.dio,
+        cookieJar: transport.jar,
+      );
+
+      await expectLater(
+        client.requestPasswordReset(
+          schoolId: '1234567',
+          email: 'user@example.edu',
+        ),
+        throwsA(
+          isA<BackendAuthFailure>()
+              .having((failure) => failure.statusCode, 'status', status)
+              .having((failure) => failure.code, 'code', code),
+        ),
+      );
+      client.close();
+    });
+  }
+
+  test(
+    'forgot-password maps a network error and rejects malformed 202',
+    () async {
+      final networkAdapter = ScriptedHttpAdapter((request) async {
+        if (request.options.uri.path.endsWith('/csrf/')) {
+          return jsonResponse(
+            {'csrfToken': 'masked'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-value; Path=/'],
+            },
+          );
+        }
+        throw DioException(
+          requestOptions: request.options,
+          type: DioExceptionType.connectionError,
+        );
+      });
+      final networkTransport = createMockTransport(networkAdapter);
+      final networkClient = AuthApiClient(
+        dio: networkTransport.dio,
+        cookieJar: networkTransport.jar,
+      );
+
+      await expectLater(
+        networkClient.requestPasswordReset(
+          schoolId: '1234567',
+          email: 'user@example.edu',
+        ),
+        throwsA(isA<NetworkUnavailableFailure>()),
+      );
+      networkClient.close();
+
+      final malformedAdapter = ScriptedHttpAdapter((request) async {
+        if (request.options.uri.path.endsWith('/csrf/')) {
+          return jsonResponse(
+            {'csrfToken': 'masked'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-value; Path=/'],
+            },
+          );
+        }
+        return jsonResponse({'message': ''}, statusCode: 202);
+      });
+      final malformedTransport = createMockTransport(malformedAdapter);
+      final malformedClient = AuthApiClient(
+        dio: malformedTransport.dio,
+        cookieJar: malformedTransport.jar,
+      );
+
+      await expectLater(
+        malformedClient.requestPasswordReset(
+          schoolId: '1234567',
+          email: 'user@example.edu',
+        ),
+        throwsA(isA<InvalidApiResponseFailure>()),
+      );
+      malformedClient.close();
+    },
+  );
+
   for (final status in [400, 401, 403, 429, 503]) {
     test('parses backend error envelope for HTTP $status', () async {
       final adapter = ScriptedHttpAdapter((request) async {
