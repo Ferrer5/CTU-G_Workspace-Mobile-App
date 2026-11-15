@@ -1,6 +1,6 @@
 # PHASE 5 — Scope extension: connectivity, release readiness, password recovery request
 
-**Status:** PROPOSED / NOT APPROVED
+**Status:** APPROVED by project owner on 2026-11-15
 To: Project owner Janrey Ferrer; course instructor/reviewer Glicerio Baguia (approval: pending)
 
 ## Why
@@ -33,5 +33,5 @@ storage; weakening CSRF/Host/Origin checks.
 4. Phase 4 manual checks D are recorded by the owner.
 
 ## Signatures
-- Project owner: ______________________  Date: __________
-- Course instructor / reviewer: ______________________  Date: __________
+- Project owner: Janrey Ferrer, 2026-11-15, approved by instruction in chat
+- Course instructor / reviewer: Glicerio Baguia — pending
