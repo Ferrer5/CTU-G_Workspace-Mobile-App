@@ -50,3 +50,69 @@ The live audit and Phase 2 test outcomes are recorded in
 and the [Phase 2 Test Report](testing/PHASE-2-TEST-REPORT.md). No mobile
 `INTERNET` permission, network client, or authentication implementation was
 approved or added in Phase 2.
+
+## Phase 5 connectivity options — proposal only — 2026-11-15
+
+**Primary demo path:** owner-controlled phone hotspot. **Long-term target:** hosted HTTPS.
+This is a proposal only; no backend, firewall, Android, or deployment change is authorized here.
+Read-only source inspection found `backend/manage.py` defaults to `config.settings`;
+`backend/config/settings.py` has `DEBUG = True`, `ALLOWED_HOSTS = []`, active session and
+CSRF middleware, but no explicit `CSRF_*`, `SESSION_*`, `SECURE_*`, or
+`CSRF_TRUSTED_ORIGINS` settings. `backend/apps/accounts/session_auth.py` enforces CSRF
+for unsafe session API requests. Recovery links use `WORKSPACE_PUBLIC_BASE_URL`
+(default `http://localhost:5173`); recovery and SMTP are disabled by default. Keep
+session/CSRF checks enabled for every option.
+
+### 1. USB cable with `adb reverse` — debug demos, no backend change
+
+- **Backend:** none. Keep the development server loopback-bound at `127.0.0.1:8000`;
+  use the existing `manage.py` development entry point. Do not edit `ALLOWED_HOSTS`.
+- **Mobile:** debug build with `API_BASE_URL=http://127.0.0.1:8000/api/v1/`.
+  The current debug network-security configuration already permits cleartext only
+  for `127.0.0.1` and `localhost`; leave the release policy unchanged.
+- **Risk / approval:** Phase 2 `adb reverse` was inconclusive and a physical-phone
+  run was not verified. Project owner approves each demo; instructor approval is
+  needed if presented as course evidence. No backend approval is needed for this
+  path.
+
+### 2. Same Wi-Fi/LAN over HTTP — phone hotspot is primary; school Wi-Fi is risky
+
+- **Backend:** propose an exact laptop hotspot IPv4 host entry in
+  `backend/config/settings.py` `ALLOWED_HOSTS` (host only, no scheme or port), and
+  bind the development server to `0.0.0.0:8000` for that demo only. A narrowly
+  scoped inbound TCP 8000 firewall rule may be needed on the hotspot's Private
+  profile; it is a separate, approval-required host change. Do not use `*`.
+- **Mobile:** set `API_BASE_URL=http://<laptop-hotspot-ip>:8000/api/v1/` for the
+  development environment. A debug-only `android/app/src/debug/AndroidManifest.xml`
+  and `android/app/src/debug/res/xml/network_security_config.xml` change would
+  permit cleartext only for that exact IP; Android cannot wildcard IP ranges.
+  The IP is compiled into the app, so build again if it changes. Keep release
+  builds HTTPS-only.
+- **Risk / approval:** `0.0.0.0` exposes the listener on interfaces; `DEBUG=True`
+  can expose detailed error pages. Hotspot addresses and firewall behavior vary.
+  The owner reports Phase 2 public Wi-Fi blocked phone-to-laptop traffic; device
+  isolation is common. The saved Phase 2 report marks physical-device/LAN testing
+  as not run, so treat that report as unverified evidence until reconciled.
+  Project owner and backend maintainer must approve backend settings; owner must
+  separately approve firewall/mobile changes. School network use also needs
+  school IT approval and is not the recommended demo path.
+
+### 3. Hosted HTTPS — recommended for real use
+
+- **Backend/deployment:** in `backend/config/settings.py` and its deployment
+  environment, set `DEBUG=False`, explicit `ALLOWED_HOSTS` for the API domain,
+  exact `CSRF_TRUSTED_ORIGINS` where cross-origin browser requests require them,
+  `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`, and correctly scoped
+  HTTPS redirect/proxy settings. Use a domain or stable address with a trusted
+  certificate and a production WSGI server, not `runserver`. Set
+  `WORKSPACE_PUBLIC_BASE_URL=https://<web-domain>` and
+  `WORKSPACE_EMAIL_PUBLIC_HOSTS` to the approved web hostname so emailed reset
+  links open the HTTPS browser reset page. Keep reset enablement and SMTP
+  credentials separately approved; never put credentials in the repo.
+- **Mobile:** release `API_BASE_URL=https://<api-domain>/api/v1/`; do not allow
+  cleartext in release builds. The emailed reset link remains a browser flow;
+  no in-app token entry or deep link is proposed.
+- **Risk / approval:** hosting, DNS, TLS/proxy configuration, secure cookies,
+  CSRF Origin/Referer behavior, and email delivery need deployment/security
+  verification. Project owner, instructor/reviewer, backend maintainer, and
+  hosting/security and mail-service owners must approve their respective changes.
