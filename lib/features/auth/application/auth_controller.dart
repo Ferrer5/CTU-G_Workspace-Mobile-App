@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth_providers.dart';
@@ -31,7 +33,10 @@ class AuthController extends Notifier<AuthState> {
     final generation = _authGeneration;
     state = const AuthState.restoring();
     try {
-      final account = await ref.read(authRepositoryProvider).restoreSession();
+      final account = await ref
+          .read(authRepositoryProvider)
+          .restoreSession()
+          .timeout(const Duration(seconds: 15));
       if (generation != _authGeneration) {
         return;
       }
@@ -41,6 +46,10 @@ class AuthController extends Notifier<AuthState> {
     } on AuthFailure catch (failure) {
       if (generation == _authGeneration) {
         state = AuthState.error(failure);
+      }
+    } on TimeoutException {
+      if (generation == _authGeneration) {
+        state = const AuthState.error(RequestTimeoutFailure());
       }
     }
   }

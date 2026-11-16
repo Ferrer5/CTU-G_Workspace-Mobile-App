@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
+
+import 'auth_failure.dart';
 
 class SecureCookieStorage extends Storage {
   SecureCookieStorage({required this.secureStorage, required this.keyPrefix});
@@ -14,7 +19,17 @@ class SecureCookieStorage extends Storage {
   Future<void> init(bool persistSession, bool ignoreExpires) async {}
 
   @override
-  Future<String?> read(String key) => secureStorage.read(key: '$keyPrefix$key');
+  Future<String?> read(String key) async {
+    try {
+      return await secureStorage
+          .read(key: '$keyPrefix$key')
+          .timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw const RequestTimeoutFailure();
+    } on PlatformException {
+      throw const ApiTransportFailure();
+    }
+  }
 
   @override
   Future<void> write(String key, String value) =>
