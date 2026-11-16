@@ -23,6 +23,15 @@
 - Added pinned GitHub Actions workflow for Flutter analysis and tests on pushes
   to `main` and pull requests; no build or secrets.
 
+## 2026-11-16 — GitHub mobile release
+
+- Tag `v0.2.0` (title: `CTU-G Mobile v0.2.0-demo`); NOT yet marked as a pre-release.
+- DEBUG, `arm64-v8a` only: `app-arm64-v8a-debug.apk`; SHA-256
+  `1289d9f08d99fb391bd55bbc89c0114c763486b5e37940f266ff1154a0d39da3`
+  (matches the split-ABI build of `a5701cd`).
+- Owner-tested on a real phone: starts, Server settings connects, and sign in works.
+  Debug/demo only: plain HTTP, any typed address; trusted networks and test accounts only.
+
 ## 2026-11-15 — Debug cleartext and version 0.1.0
 
 - Added debug cleartext for hotspot and current LAN demo addresses
