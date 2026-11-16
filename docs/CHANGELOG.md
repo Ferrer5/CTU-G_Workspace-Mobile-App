@@ -25,7 +25,7 @@
 
 ## 2026-11-16 — GitHub mobile release
 
-- Tag `v0.2.0` (title: `CTU-G Mobile v0.2.0-demo`); NOT yet marked as a pre-release.
+- Tag `v0.2.0` (title: `CTU-G Mobile v0.2.0-demo`); marked as a pre-release on 2026-11-16.
 - DEBUG, `arm64-v8a` only: `app-arm64-v8a-debug.apk`; SHA-256
   `1289d9f08d99fb391bd55bbc89c0114c763486b5e37940f266ff1154a0d39da3`
   (matches the split-ABI build of `a5701cd`).
