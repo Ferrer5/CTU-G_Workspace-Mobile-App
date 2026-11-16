@@ -38,7 +38,7 @@ storage; weakening CSRF/Host/Origin checks.
 - The settings feature is mobile-side only; no backend configuration or code is changed.
 - Release builds do not register the Server settings route or inherit the debug cleartext policy.
 
-Approved by project owner Janrey Ferrer on [DATE], by instruction in chat.
+Approved by project owner Janrey Ferrer on 16 November 2026, by instruction in chat.
 
 ## Signatures
 - Project owner: Janrey Ferrer, 2026-11-15, approved by instruction in chat
