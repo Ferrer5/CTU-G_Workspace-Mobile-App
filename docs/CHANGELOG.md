@@ -18,6 +18,11 @@
   safely. Set version `0.2.0+1` (`052719c`) and added `env/demo.example.json`
   (`a5701cd`).
 
+## 2026-11-17 — Flutter CI
+
+- Added pinned GitHub Actions workflow for Flutter analysis and tests on pushes
+  to `main` and pull requests; no build or secrets.
+
 ## 2026-11-15 — Debug cleartext and version 0.1.0
 
 - Added debug cleartext for hotspot and current LAN demo addresses
