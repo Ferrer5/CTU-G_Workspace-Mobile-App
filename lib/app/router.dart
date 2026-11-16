@@ -6,13 +6,16 @@ import '../features/auth/application/auth_state.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/auth/presentation/authenticated_landing_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
+import '../features/auth/presentation/server_settings_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
+import 'providers.dart';
 import 'startup_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = buildRouter(
     readAuthState: () => ref.read(authControllerProvider),
+    serverSettingsEnabled: ref.watch(serverSettingsEnabledProvider),
   );
   ref.listen(authControllerProvider, (_, _) => router.refresh());
   ref.onDispose(router.dispose);
@@ -22,6 +25,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 GoRouter buildRouter({
   String initialLocation = '/',
   required AuthState Function() readAuthState,
+  bool serverSettingsEnabled = false,
 }) {
   return GoRouter(
     initialLocation: initialLocation,
@@ -31,11 +35,16 @@ GoRouter buildRouter({
       final isPublicRoute =
           path == '/sign-in' ||
           path == '/sign-up' ||
-          path == '/forgot-password';
+          path == '/forgot-password' ||
+          (serverSettingsEnabled && path == '/server-settings');
 
       switch (authState.status) {
         case AuthStatus.restoring:
-          return path == '/' || path == '/forgot-password' ? null : '/';
+          return path == '/' ||
+                  path == '/forgot-password' ||
+                  (serverSettingsEnabled && path == '/server-settings')
+              ? null
+              : '/';
         case AuthStatus.authenticated:
           return path == '/home' ? null : '/home';
         case AuthStatus.unauthenticated:
@@ -67,6 +76,11 @@ GoRouter buildRouter({
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
+      if (serverSettingsEnabled)
+        GoRoute(
+          path: '/server-settings',
+          builder: (context, state) => const ServerSettingsScreen(),
+        ),
       GoRoute(
         path: '/home',
         builder: (context, state) => const AuthenticatedLandingScreen(),

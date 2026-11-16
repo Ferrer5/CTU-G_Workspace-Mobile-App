@@ -73,6 +73,16 @@ class AuthApiClient {
     }
   }
 
+  Future<void> testConnection() async {
+    final response = await _get(csrfPath);
+    final csrfToken = response.body['csrfToken'];
+    if (response.statusCode != 200 ||
+        csrfToken is! String ||
+        csrfToken.isEmpty) {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
   Future<AuthenticatedAccount?> currentSession() async {
     final response = await _get(sessionPath);
     if (response.statusCode != 200) {
@@ -102,6 +112,8 @@ class AuthApiClient {
     _csrfBootstrap = null;
     _latestBootstrapCsrfCookieName = null;
   }
+
+  void cancelInFlightRequests() => dio.close(force: true);
 
   void close() => dio.close(force: true);
 

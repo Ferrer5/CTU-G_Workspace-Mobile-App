@@ -107,4 +107,49 @@ void main() {
       );
     }
   });
+
+  test('parses host, optional port, scheme, and trailing slash', () {
+    expect(
+      ServerAddress.parse(
+        host: ' 192.168.113.168/// ',
+        port: '8000',
+        useHttps: false,
+      ).apiBaseUrl,
+      Uri.parse('http://192.168.113.168:8000/api/v1/'),
+    );
+    expect(
+      ServerAddress.parse(
+        host: 'api.example.test',
+        port: '',
+        useHttps: true,
+      ).apiBaseUrl,
+      Uri.parse('https://api.example.test/api/v1/'),
+    );
+  });
+
+  test('rejects userinfo, paths, and an embedded port', () {
+    for (final host in [
+      'user:pass@example.test',
+      'example.test/api',
+      'example.test:8000',
+    ]) {
+      expect(
+        () => ServerAddress.parse(host: host, port: '', useHttps: false),
+        throwsA(isA<FormatException>()),
+      );
+    }
+  });
+
+  test('rejects ports outside the TCP port range', () {
+    for (final port in ['0', '65536', '-1', 'abc']) {
+      expect(
+        () => ServerAddress.parse(
+          host: 'example.test',
+          port: port,
+          useHttps: false,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    }
+  });
 }

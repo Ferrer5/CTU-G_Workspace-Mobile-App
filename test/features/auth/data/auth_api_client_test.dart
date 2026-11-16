@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:ctug_mobile/features/auth/data/auth_api_client.dart';
@@ -348,6 +349,77 @@ void main() {
       client.close();
     },
   );
+
+  test(
+    'connection test accepts only HTTP 200 JSON with a CSRF token',
+    () async {
+      final successAdapter = ScriptedHttpAdapter(
+        (_) async => jsonResponse({'csrfToken': 'masked-token'}),
+      );
+      final successTransport = createMockTransport(successAdapter);
+      final successClient = AuthApiClient(
+        dio: successTransport.dio,
+        cookieJar: successTransport.jar,
+      );
+      await successClient.testConnection();
+      successClient.close();
+
+      final htmlAdapter = ScriptedHttpAdapter(
+        (_) async => rawResponse('<html>ok</html>', contentType: 'text/html'),
+      );
+      final htmlTransport = createMockTransport(htmlAdapter);
+      final htmlClient = AuthApiClient(
+        dio: htmlTransport.dio,
+        cookieJar: htmlTransport.jar,
+      );
+      await expectLater(
+        htmlClient.testConnection(),
+        throwsA(isA<NonJsonResponseFailure>()),
+      );
+      htmlClient.close();
+
+      for (final response in [
+        jsonResponse({'other': 'value'}),
+        jsonResponse({'csrfToken': 'masked'}, statusCode: 404),
+      ]) {
+        final adapter = ScriptedHttpAdapter((_) async => response);
+        final transport = createMockTransport(adapter);
+        final client = AuthApiClient(
+          dio: transport.dio,
+          cookieJar: transport.jar,
+        );
+        await expectLater(
+          client.testConnection(),
+          throwsA(isA<InvalidApiResponseFailure>()),
+        );
+        client.close();
+      }
+    },
+  );
+
+  test('connection test safely maps timeout and refused connections', () async {
+    for (final (errorType, failure) in [
+      (DioExceptionType.connectionTimeout, isA<RequestTimeoutFailure>()),
+      (DioExceptionType.connectionError, isA<NetworkUnavailableFailure>()),
+    ]) {
+      final adapter = ScriptedHttpAdapter((request) async {
+        throw DioException(
+          requestOptions: request.options,
+          type: errorType,
+          error: errorType == DioExceptionType.connectionError
+              ? const SocketException('Connection refused')
+              : null,
+        );
+      });
+      final transport = createMockTransport(adapter);
+      final client = AuthApiClient(
+        dio: transport.dio,
+        cookieJar: transport.jar,
+      );
+      await expectLater(client.testConnection(), throwsA(failure));
+      client.close();
+    }
+  });
 
   for (final (status, code) in [
     (400, 'validation_error'),

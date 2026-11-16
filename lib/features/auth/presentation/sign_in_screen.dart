@@ -8,6 +8,7 @@ import '../data/auth_failure.dart';
 import 'auth_feedback.dart';
 import 'auth_screen_background.dart';
 import 'auth_screen_header.dart';
+import 'server_settings_controls.dart';
 import 'auth_text_field.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -104,10 +105,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const AuthScreenHeader(
-                    title: 'Sign In',
-                    subtitle: 'Access your CTU-G Workspace account.',
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AuthScreenHeader(
+                          title: 'Sign In',
+                          subtitle: 'Access your CTU-G Workspace account.',
+                        ),
+                      ),
+                      ServerSettingsAction(),
+                    ],
                   ),
+                  const ActiveServerLabel(),
                   const SizedBox(height: 27),
                   AuthTextField(
                     fieldKey: const Key('schoolId'),

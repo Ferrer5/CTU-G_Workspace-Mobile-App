@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:ctug_mobile/app/router.dart';
+import 'package:ctug_mobile/app/providers.dart';
 import 'package:ctug_mobile/features/auth/auth_providers.dart';
 import 'package:ctug_mobile/features/auth/data/auth_failure.dart';
 import 'package:ctug_mobile/features/auth/domain/authenticated_account.dart';
+import 'package:ctug_mobile/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,9 +13,22 @@ import 'package:go_router/go_router.dart';
 
 import 'test_auth_repository.dart';
 
-ProviderContainer _container(TestAuthRepository repository) {
+ProviderContainer _container(
+  TestAuthRepository repository, {
+  bool? serverSettingsEnabled,
+}) {
   return ProviderContainer(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      appConfigProvider.overrideWithValue(
+        AppConfig.fromValues(
+          appEnv: 'development',
+          apiBaseUrl: 'http://127.0.0.1:8000/api/v1/',
+        ),
+      ),
+      authRepositoryProvider.overrideWithValue(repository),
+      if (serverSettingsEnabled != null)
+        serverSettingsEnabledProvider.overrideWithValue(serverSettingsEnabled),
+    ],
   );
 }
 
@@ -142,6 +157,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('forgotPasswordSubmit')), findsOneWidget);
   });
+
+  testWidgets('debug settings screen is reachable from sign-in and retry', (
+    tester,
+  ) async {
+    final repository = TestAuthRepository(
+      restoreHandler: () async => throw const NetworkUnavailableFailure(),
+    );
+    final container = _container(repository, serverSettingsEnabled: true);
+    addTearDown(container.dispose);
+    final router = container.read(appRouterProvider);
+
+    await tester.pumpWidget(_app(container, router));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('retrySessionRestore')), findsOneWidget);
+    expect(find.text('Server: 127.0.0.1:8000'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('serverSettingsAction')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('serverHost')), findsOneWidget);
+
+    router.go('/sign-in');
+    await tester.pumpAndSettle();
+    expect(find.text('Server: 127.0.0.1:8000'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('serverSettingsAction')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('serverPort')), findsOneWidget);
+  });
+
+  testWidgets(
+    'server settings entry points and route are absent when disabled',
+    (tester) async {
+      final repository = TestAuthRepository(
+        restoreHandler: () async => throw const NetworkUnavailableFailure(),
+      );
+      final container = _container(repository, serverSettingsEnabled: false);
+      addTearDown(container.dispose);
+      final router = container.read(appRouterProvider);
+
+      await tester.pumpWidget(_app(container, router));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('retrySessionRestore')), findsOneWidget);
+      expect(find.byKey(const Key('serverSettingsAction')), findsNothing);
+      expect(find.byKey(const Key('activeServerLabel')), findsNothing);
+
+      router.go('/sign-in');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('serverSettingsAction')), findsNothing);
+      expect(find.byKey(const Key('activeServerLabel')), findsNothing);
+
+      router.go('/server-settings');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('serverHost')), findsNothing);
+      expect(find.byKey(const Key('retrySessionRestore')), findsOneWidget);
+    },
+  );
 
   testWidgets('shows a recoverable restore error and retries successfully', (
     tester,

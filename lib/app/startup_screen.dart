@@ -7,6 +7,7 @@ import '../features/auth/application/auth_state.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/auth/presentation/auth_screen_background.dart';
 import '../features/auth/presentation/auth_screen_header.dart';
+import '../features/auth/presentation/server_settings_controls.dart';
 
 class StartupScreen extends ConsumerStatefulWidget {
   const StartupScreen({super.key});
@@ -41,15 +42,24 @@ class _StartupScreenState extends ConsumerState<StartupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AuthScreenHeader(
-                  title: restoring
-                      ? 'Checking your session'
-                      : 'We couldn’t verify your session',
-                  subtitle: restoring
-                      ? 'Please wait while we securely restore your account.'
-                      : 'Check your connection, then try again.',
-                  showRequiredNote: false,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: AuthScreenHeader(
+                        title: restoring
+                            ? 'Checking your session'
+                            : 'We couldn’t verify your session',
+                        subtitle: restoring
+                            ? 'Please wait while we securely restore your account.'
+                            : 'Check your connection, then try again.',
+                        showRequiredNote: false,
+                      ),
+                    ),
+                    if (!restoring) const ServerSettingsAction(),
+                  ],
                 ),
+                if (!restoring) const ActiveServerLabel(),
                 const SizedBox(height: 27),
                 if (restoring)
                   const Center(

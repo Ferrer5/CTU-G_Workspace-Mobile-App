@@ -9,6 +9,8 @@ import 'package:ctug_mobile/features/auth/domain/authenticated_account.dart';
 import 'package:ctug_mobile/features/auth/domain/registration_request.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_in_screen.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_up_screen.dart';
+import 'package:ctug_mobile/app/providers.dart';
+import 'package:ctug_mobile/core/config/app_config.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +64,15 @@ class _FakeAuthRepository extends AuthRepository {
 
 Widget _app(Widget screen, _FakeAuthRepository repository) {
   return ProviderScope(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      appConfigProvider.overrideWithValue(
+        AppConfig.fromValues(
+          appEnv: 'development',
+          apiBaseUrl: 'http://127.0.0.1:8000/api/v1/',
+        ),
+      ),
+      authRepositoryProvider.overrideWithValue(repository),
+    ],
     child: MaterialApp(home: screen),
   );
 }

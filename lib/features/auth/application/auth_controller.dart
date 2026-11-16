@@ -8,6 +8,7 @@ import 'auth_state.dart';
 
 class AuthController extends Notifier<AuthState> {
   Future<void>? _restoreSessionOperation;
+  int _authGeneration = 0;
 
   @override
   AuthState build() => const AuthState.restoring();
@@ -27,49 +28,74 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _restoreSession() async {
+    final generation = _authGeneration;
     state = const AuthState.restoring();
     try {
       final account = await ref.read(authRepositoryProvider).restoreSession();
+      if (generation != _authGeneration) {
+        return;
+      }
       state = account == null
           ? const AuthState.unauthenticated()
           : AuthState.authenticated(account);
     } on AuthFailure catch (failure) {
-      state = AuthState.error(failure);
+      if (generation == _authGeneration) {
+        state = AuthState.error(failure);
+      }
     }
+  }
+
+  void resetForServerChange() {
+    _authGeneration++;
+    _restoreSessionOperation = null;
+    state = const AuthState.restoring();
   }
 
   Future<void> login({
     required String schoolId,
     required String password,
   }) async {
+    final generation = _authGeneration;
     try {
       final account = await ref
           .read(authRepositoryProvider)
           .login(schoolId: schoolId, password: password);
-      state = AuthState.authenticated(account);
+      if (generation == _authGeneration) {
+        state = AuthState.authenticated(account);
+      }
     } on AuthFailure catch (failure) {
-      state = AuthState.error(failure);
+      if (generation == _authGeneration) {
+        state = AuthState.error(failure);
+      }
     }
   }
 
   Future<RegistrationAcknowledgement> register(
     RegistrationRequest request,
   ) async {
+    final generation = _authGeneration;
     try {
       return await ref.read(authRepositoryProvider).register(request);
     } on AuthFailure catch (failure) {
-      state = AuthState.error(failure, account: state.account);
+      if (generation == _authGeneration) {
+        state = AuthState.error(failure, account: state.account);
+      }
       rethrow;
     }
   }
 
   Future<void> logout() async {
+    final generation = _authGeneration;
     final account = state.account;
     try {
       await ref.read(authRepositoryProvider).logout();
-      state = const AuthState.unauthenticated();
+      if (generation == _authGeneration) {
+        state = const AuthState.unauthenticated();
+      }
     } on AuthFailure catch (failure) {
-      state = AuthState.error(failure, account: account);
+      if (generation == _authGeneration) {
+        state = AuthState.error(failure, account: account);
+      }
     }
   }
 }
