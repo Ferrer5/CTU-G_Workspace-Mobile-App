@@ -34,10 +34,16 @@ preferences; the client does not use JWTs.
 The public recovery request always shows neutral 202 copy. Its emailed reset
 link opens in a browser; there is no in-app token entry or deep link.
 
-The release APK was built and inspected: it contains `INTERNET`, has no
-`networkSecurityConfig` manifest reference, and does not package the debug
-loopback network-security XML. Release therefore retains Android's default
-cleartext blocking; the debug-only exception is limited to loopback.
+## Debug server settings
+In debug/demo builds, use Server settings on Sign In or the startup retry screen to choose a host/port and test `auth/csrf/`.
+The backend must include the host in `ALLOWED_HOSTS`, listen on the network interface, and allow traffic through the firewall.
+Debug builds permit cleartext to any host only for this feature; HTTP is unencrypted. Release builds keep the compiled HTTPS URL.
+
+The release APK was rebuilt and inspected: it contains `INTERNET`, has no
+`networkSecurityConfig` manifest reference, and does not package
+`network_security_config.xml`. The server-settings route is gated by
+`kDebugMode`; its disabled-route test passes. Release retains Android's default
+cleartext blocking and the compiled HTTPS API URL.
 
 ## Running and verification
 
@@ -73,12 +79,13 @@ was made.
 
 ## Limitations
 
-- Physical phones over LAN/Wi-Fi are unsupported: loopback only. A different
-  address requires an approved backend `ALLOWED_HOSTS` change and app rebuild.
+- Server settings can select a different server at runtime in debug/demo builds;
+  the backend must allow its host, listen on an accessible interface, and permit
+  traffic through the firewall.
 - The reset itself is completed in the browser from the emailed link; there is
   no in-app token entry or deep link.
 - Logout requires the server to confirm; an offline logout is not reported as
   successful.
-- Release builds block plain HTTP; use HTTPS outside the approved debug
-  loopback path.
+- Release builds block plain HTTP; debug builds allow cleartext to any host for
+  the Server settings feature only.
 - Accounts and persisted cookies are isolated per API server.

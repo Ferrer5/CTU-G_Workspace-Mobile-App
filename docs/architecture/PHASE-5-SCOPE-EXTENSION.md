@@ -32,6 +32,12 @@ storage; weakening CSRF/Host/Origin checks.
 3. A release APK builds with the keystore outside the repo; CI runs analyze and tests.
 4. Phase 4 manual checks D are recorded by the owner.
 
+## Debug server settings
+- Debug/demo builds expose runtime Server settings; release builds retain the compiled HTTPS API URL.
+- Debug builds permit cleartext to any host only through the debug Android network-security configuration.
+- The settings feature is mobile-side only; no backend configuration or code is changed.
+- Release builds do not register the Server settings route or inherit the debug cleartext policy.
+
 ## Signatures
 - Project owner: Janrey Ferrer, 2026-11-15, approved by instruction in chat
 - Course instructor / reviewer: Glicerio Baguia — pending
