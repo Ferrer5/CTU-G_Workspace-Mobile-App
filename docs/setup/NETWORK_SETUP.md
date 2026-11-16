@@ -74,6 +74,16 @@ The physical-device example
 documentation-only address `192.0.2.10`; replace it only in a local ignored
 configuration after the required approval. It is not a usable server address.
 
+## Running the backend for a phone or emulator
+
+The reported helper script is outside this repo and writes an `ALLOWED_HOSTS`
+settings file before running Django `runserver` on `0.0.0.0:8000` over HTTP
+(HTTPS off); the script itself was not inspected here. Use `10.0.2.2` from an
+Android emulator and the laptop's LAN IP from a phone. Allow inbound TCP 8000
+on the Windows Private network profile only. With `DEBUG=True`, debug error
+pages are exposed to reachable network clients; use only on a trusted network
+and stop the server when done.
+
 ## Troubleshooting boundaries
 
 - `localhost` on Android refers to the device/emulator, not the Windows host.

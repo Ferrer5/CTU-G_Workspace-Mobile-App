@@ -14,6 +14,13 @@ backend tests.
 
 ### Pending proposals only
 
+#### PROPOSED, NOT APPLIED, NOT TESTED — opt-in LAN development
+
+Consider a debug-only `.env` setting `DJANGO_ALLOW_LAN=1` that makes
+`manage.py runserver` listen on `0.0.0.0` and adds the machine's own addresses
+and `10.0.2.2` to `ALLOWED_HOSTS`, without a wildcard. This is a proposal only;
+no backend change was applied or tested.
+
 | Proposal | Classification | Approval |
 |---|---|---|
 | Explicit host allowlist for emulator `10.0.2.2` or LAN in `backend/config/settings.py` | OPTIONAL, conditional on choosing that non-loopback development path; `adb reverse` remains unverified | PENDING |

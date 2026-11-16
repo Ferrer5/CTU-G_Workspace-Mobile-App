@@ -34,6 +34,14 @@ preferences; the client does not use JWTs.
 The public recovery request always shows neutral 202 copy. Its emailed reset
 link opens in a browser; there is no in-app token entry or deep link.
 
+## Startup resilience
+
+Startup waits at most 3 seconds for saved server settings, then uses the
+compiled API URL; cookie reads and session restore are bounded to 15 seconds.
+Unhandled startup errors show a safe fallback screen; logs are generic and
+secret-free. `flutter_secure_storage` 11.2.0 defaults Android `resetOnError`
+to true, so decryption errors can erase stored session cookies; keep the default.
+
 ## Debug server settings
 In debug/demo builds, use Server settings on Sign In or the startup retry screen to choose a host/port and test `auth/csrf/`.
 The backend must include the host in `ALLOWED_HOSTS`, listen on the network interface, and allow traffic through the firewall.
@@ -59,12 +67,12 @@ adb reverse tcp:8001 tcp:8001
 flutter run --dart-define-from-file=env\sandbox.example.json
 ```
 
-Actual checks on 2026-11-14:
+Run `flutter test` for the current test suite. Recorded checks:
 
 | Command | Result |
 |---|---|
 | `flutter analyze` | Passed; no issues found |
-| `flutter test` | Passed; all 57 tests |
+| `flutter test` (Phase 4 wrap-up, 2026-11-14) | Passed |
 | `flutter build apk --release --dart-define-from-file=env\sandbox.example.json` | Passed; `build\app\outputs\flutter-apk\app-release.apk` |
 
 Owner-confirmed emulator checks against the real local server: sign in, landing
@@ -73,9 +81,11 @@ server-down retry. Real-server Sign Up, pending-account login, and rate limiting
 were not manually tested. The tests for that wrap-up were mocked; no backend
 command or request was run then.
 
-Phase 5 validation on 2026-11-15: `flutter analyze` passed and `flutter test`
-passed all 76 tests. Recovery API behavior was mocked; no real backend request
-was made.
+Phase 5 validation on 2026-11-15: `flutter analyze` and `flutter test` passed.
+Recovery API behavior was mocked; no real backend request was made.
+
+Current validation (2026-11-17): `flutter analyze` passed; `flutter test`
+passed all 97 tests.
 
 ## Limitations
 

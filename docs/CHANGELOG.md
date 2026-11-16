@@ -8,6 +8,26 @@
   package, or Android changes were made.
 - Validation: `flutter analyze` passed; `flutter test` passed all 76 tests.
 
+## 2026-11-16 — Debug Server settings and startup hardening
+
+- Server settings stages 1–3 added persisted debug URL selection, connection
+  testing, and debug-only any-host cleartext (`252b881`, `beb05e2`, `84993ab`).
+- Documented/approved settings (`61cd16f`, `1dd72fe`, `b580613`); release APK
+  inspection found `INTERNET` but no network security config; cleartext is blocked.
+- Startup hardening in `cd6a941` bounds secure-storage waits and falls back
+  safely. Set version `0.2.0+1` (`052719c`) and added `env/demo.example.json`
+  (`a5701cd`).
+
+## 2026-11-15 — Debug cleartext and version 0.1.0
+
+- Added debug cleartext for hotspot and current LAN demo addresses
+  (`9896b3c`, `4794b0d`); set version `0.1.0+1` (`2cce8c2`).
+
+## 2026-11-14 — Branding
+
+- Moved and styled the web-like brand header/logo (`72942ae`) and added and
+  refined the CTU-G launcher icon (`dad1a7d`, `080648b`).
+
 ## 2026-11-14 — Phase 4 authentication wrap-up
 
 - Added the short mobile authentication reference and verified release APK

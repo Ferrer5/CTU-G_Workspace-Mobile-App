@@ -6,10 +6,10 @@ in the sibling `C:\Users\Janrey\CTU-G_Workspace` repository.
 
 ## Current phase
 
-Phase 1 establishes the Flutter project, environment configuration validation,
-a single startup screen, routing, Material 3 theme, tests, and architecture
-documentation. There is no authentication, networking, data persistence, or
-business feature implementation.
+The app has Sign In, Sign Up, session restore, logout, a password-recovery
+request screen, and a debug-only Server settings screen. See
+[Authentication](docs/architecture/AUTHENTICATION.md) and
+[Changelog](docs/CHANGELOG.md).
 
 ## Stack and verified environment
 
