@@ -15,6 +15,16 @@ class RegistrationAcknowledgement {
   final String message;
 }
 
+class PasswordResetCodeRequest {
+  const PasswordResetCodeRequest({
+    required this.resendAfterSeconds,
+    required this.codeValidSeconds,
+  });
+
+  final int resendAfterSeconds;
+  final int codeValidSeconds;
+}
+
 class AuthApiClient {
   AuthApiClient({required this.dio, required this.cookieJar}) {
     dio.interceptors.add(CookieManager(cookieJar));
@@ -26,6 +36,8 @@ class AuthApiClient {
   static const logoutPath = 'auth/logout/';
   static const sessionPath = 'auth/session/';
   static const passwordResetRequestPath = 'auth/forgot-password/';
+  static const passwordResetVerifyPath = 'auth/forgot-password/verify/';
+  static const passwordResetConfirmPath = 'auth/reset-password/';
   static const _csrfCookieNames = {'csrftoken', 'ctug_review_sandbox_csrf'};
 
   final Dio dio;
@@ -59,16 +71,55 @@ class AuthApiClient {
     return RegistrationAcknowledgement(message);
   }
 
+  Future<PasswordResetCodeRequest> requestPasswordResetCode({
+    required String email,
+  }) async {
+    final response = await _postRecovery(passwordResetRequestPath, {
+      'email': email,
+    });
+    if (response.statusCode != 202) {
+      throw const InvalidApiResponseFailure();
+    }
+    return PasswordResetCodeRequest(
+      resendAfterSeconds: _boundedSeconds(response.body['resend_after'], 60),
+      codeValidSeconds: _boundedSeconds(
+        response.body['code_valid_seconds'],
+        600,
+      ),
+    );
+  }
+
   Future<void> requestPasswordReset({
     required String schoolId,
     required String email,
   }) async {
-    final response = await _post(passwordResetRequestPath, {
-      'school_id': schoolId,
+    await requestPasswordResetCode(email: email);
+  }
+
+  Future<void> verifyPasswordResetCode({
+    required String email,
+    required String code,
+  }) async {
+    final response = await _postRecovery(passwordResetVerifyPath, {
       'email': email,
+      'code': code,
     });
-    final message = response.body['message'];
-    if (response.statusCode != 202 || message is! String || message.isEmpty) {
+    if (response.statusCode != 200 || response.body['status'] != 'verified') {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final response = await _postRecovery(passwordResetConfirmPath, {
+      'email': email,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
+    if (response.statusCode != 200) {
       throw const InvalidApiResponseFailure();
     }
   }
@@ -132,6 +183,24 @@ class AuthApiClient {
       },
     );
   }
+
+  Future<_ApiResponse> _postRecovery(
+    String path,
+    Map<String, Object?> body,
+  ) async {
+    try {
+      return await _post(path, body);
+    } on BackendAuthFailure catch (failure) {
+      if (failure.statusCode == 403) {
+        _csrfReady = false;
+        _csrfBootstrap = null;
+      }
+      rethrow;
+    }
+  }
+
+  static int _boundedSeconds(Object? value, int fallback) =>
+      value is int && value >= 0 && value <= 86400 ? value : fallback;
 
   Future<void> _ensureCsrf() async {
     if (_csrfReady) {
@@ -218,7 +287,11 @@ class AuthApiClient {
     }
     if (statusCode >= 400) {
       if ({400, 401, 403, 429}.contains(statusCode) || statusCode >= 500) {
-        throw _parseBackendFailure(statusCode, decoded);
+        throw _parseBackendFailure(
+          statusCode,
+          decoded,
+          retryAfterHeader: response.headers.value('retry-after'),
+        );
       }
       throw const InvalidApiResponseFailure();
     }
@@ -250,7 +323,11 @@ class AuthApiClient {
     }
   }
 
-  AuthFailure _parseBackendFailure(int statusCode, Object? body) {
+  AuthFailure _parseBackendFailure(
+    int statusCode,
+    Object? body, {
+    String? retryAfterHeader,
+  }) {
     if (body is! Map<String, dynamic> ||
         body['error'] is! Map<String, dynamic>) {
       return const InvalidApiResponseFailure();
@@ -266,11 +343,25 @@ class AuthApiClient {
         (fields != null && fields is! Map<String, dynamic>)) {
       return const InvalidApiResponseFailure();
     }
+    final bodyWait = error['retry_after'];
+    final headerWait = retryAfterHeader == null
+        ? null
+        : int.tryParse(retryAfterHeader.trim());
+    int? retryAfter;
+    if (bodyWait is int) {
+      retryAfter = bodyWait;
+    } else if (bodyWait is String) {
+      retryAfter = int.tryParse(bodyWait.trim());
+    }
+    retryAfter ??= headerWait;
     return BackendAuthFailure(
       statusCode: statusCode,
       code: code,
       message: message,
       fields: fields as Map<String, dynamic>?,
+      retryAfterSeconds: retryAfter != null && retryAfter >= 0 && retryAfter <= 86400
+          ? retryAfter
+          : null,
     );
   }
 

@@ -132,7 +132,6 @@ void main() {
     await tester.tap(find.byKey(const Key('forgotPasswordLink')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('forgotPasswordSubmit')), findsOneWidget);
-    expect(find.byKey(const Key('recoverySchoolId')), findsOneWidget);
     expect(find.byKey(const Key('recoveryEmail')), findsOneWidget);
   });
 

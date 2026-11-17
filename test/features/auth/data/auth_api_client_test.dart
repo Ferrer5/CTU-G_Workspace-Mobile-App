@@ -303,7 +303,7 @@ void main() {
   );
 
   test(
-    'forgot-password sends exactly its contract with CSRF and API Origin',
+    'requestPasswordResetCode posts only the email and returns the timing payload',
     () async {
       final adapter = ScriptedHttpAdapter((request) async {
         final path = request.options.uri.path;
@@ -319,16 +319,10 @@ void main() {
         expect(request.options.method, 'POST');
         expect(request.options.headers['X-CSRFToken'], 'csrf-value');
         expect(request.options.headers['Origin'], 'https://auth.example.test');
-        expect(
-          (jsonDecode(request.body!) as Map<String, dynamic>).keys.toSet(),
-          {'school_id', 'email'},
-        );
-        expect(jsonDecode(request.body!), {
-          'school_id': '1234567',
-          'email': 'user@example.edu',
-        });
+        expect(jsonDecode(request.body!), {'email': 'user@example.edu'});
         return jsonResponse({
-          'message': 'If the account details match an eligible account, a password reset email will be sent.',
+          'resend_after': 30,
+          'code_valid_seconds': 600,
         }, statusCode: 202);
       });
       final transport = createMockTransport(adapter);
@@ -337,11 +331,12 @@ void main() {
         cookieJar: transport.jar,
       );
 
-      await client.requestPasswordReset(
-        schoolId: '1234567',
+      final result = await client.requestPasswordResetCode(
         email: 'user@example.edu',
       );
 
+      expect(result.resendAfterSeconds, 30);
+      expect(result.codeValidSeconds, 600);
       expect(adapter.requests.map((request) => request.options.uri.path), [
         '/api/v1/auth/csrf/',
         '/api/v1/auth/forgot-password/',
@@ -349,6 +344,105 @@ void main() {
       client.close();
     },
   );
+
+  test(
+    'verifyPasswordResetCode posts email and code, and confirmPasswordReset sends the ticket cookie',
+    () async {
+      final adapter = ScriptedHttpAdapter((request) async {
+        final path = request.options.uri.path;
+        if (path.endsWith('/csrf/')) {
+          return jsonResponse(
+            {'csrfToken': 'masked'},
+            headers: {
+              'set-cookie': ['csrftoken=csrf-value; Path=/'],
+            },
+          );
+        }
+        if (path.endsWith('/forgot-password/verify/')) {
+          expect(request.options.method, 'POST');
+          expect(jsonDecode(request.body!), {
+            'email': 'user@example.edu',
+            'code': '123456',
+          });
+          return jsonResponse(
+            {'status': 'verified'},
+            statusCode: 200,
+            headers: {'set-cookie': ['ticket=reset-ticket; Path=/']},
+          );
+        }
+        if (path.endsWith('/reset-password/')) {
+          expect(request.options.headers['cookie'], contains('ticket=reset-ticket'));
+          expect(jsonDecode(request.body!), {
+            'email': 'user@example.edu',
+            'password': 'NewPassw0rd!x',
+            'password_confirmation': 'NewPassw0rd!x',
+          });
+          return jsonResponse({'status': 'reset'}, statusCode: 200);
+        }
+        fail('Unexpected endpoint');
+      });
+      final transport = createMockTransport(adapter);
+      final client = AuthApiClient(
+        dio: transport.dio,
+        cookieJar: transport.jar,
+      );
+
+      await client.verifyPasswordResetCode(
+        email: 'user@example.edu',
+        code: '123456',
+      );
+      await client.confirmPasswordReset(
+        email: 'user@example.edu',
+        password: 'NewPassw0rd!x',
+        passwordConfirmation: 'NewPassw0rd!x',
+      );
+
+      expect(adapter.requests.map((request) => request.options.uri.path), [
+        '/api/v1/auth/csrf/',
+        '/api/v1/auth/forgot-password/verify/',
+        '/api/v1/auth/reset-password/',
+      ]);
+      client.close();
+    },
+  );
+
+  test('requestPasswordResetCode reads Retry-After on a 429', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      return jsonResponse(
+        {
+          'error': {
+            'code': 'throttled',
+            'message': 'Too many requests',
+          },
+        },
+        statusCode: 429,
+        headers: {'retry-after': ['30']},
+      );
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(
+      dio: transport.dio,
+      cookieJar: transport.jar,
+    );
+
+    await expectLater(
+      client.requestPasswordResetCode(email: 'user@example.edu'),
+      throwsA(
+        isA<BackendAuthFailure>()
+            .having((failure) => failure.statusCode, 'statusCode', 429)
+            .having((failure) => failure.retryAfterSeconds, 'retryAfter', 30),
+      ),
+    );
+    client.close();
+  });
 
   test(
     'connection test accepts only HTTP 200 JSON with a CSRF token',
@@ -463,7 +557,7 @@ void main() {
   }
 
   test(
-    'forgot-password maps a network error and rejects malformed 202',
+    'forgot-password maps network errors and rejects invalid verification responses',
     () async {
       final networkAdapter = ScriptedHttpAdapter((request) async {
         if (request.options.uri.path.endsWith('/csrf/')) {
@@ -486,15 +580,12 @@ void main() {
       );
 
       await expectLater(
-        networkClient.requestPasswordReset(
-          schoolId: '1234567',
-          email: 'user@example.edu',
-        ),
+        networkClient.requestPasswordResetCode(email: 'user@example.edu'),
         throwsA(isA<NetworkUnavailableFailure>()),
       );
       networkClient.close();
 
-      final malformedAdapter = ScriptedHttpAdapter((request) async {
+      final invalidAdapter = ScriptedHttpAdapter((request) async {
         if (request.options.uri.path.endsWith('/csrf/')) {
           return jsonResponse(
             {'csrfToken': 'masked'},
@@ -503,22 +594,22 @@ void main() {
             },
           );
         }
-        return jsonResponse({'message': ''}, statusCode: 202);
+        return jsonResponse({'status': 'bad'}, statusCode: 200);
       });
-      final malformedTransport = createMockTransport(malformedAdapter);
-      final malformedClient = AuthApiClient(
-        dio: malformedTransport.dio,
-        cookieJar: malformedTransport.jar,
+      final invalidTransport = createMockTransport(invalidAdapter);
+      final invalidClient = AuthApiClient(
+        dio: invalidTransport.dio,
+        cookieJar: invalidTransport.jar,
       );
 
       await expectLater(
-        malformedClient.requestPasswordReset(
-          schoolId: '1234567',
+        invalidClient.verifyPasswordResetCode(
           email: 'user@example.edu',
+          code: '123456',
         ),
         throwsA(isA<InvalidApiResponseFailure>()),
       );
-      malformedClient.close();
+      invalidClient.close();
     },
   );
 

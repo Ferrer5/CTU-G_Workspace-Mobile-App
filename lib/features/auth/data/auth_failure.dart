@@ -13,11 +13,13 @@ class BackendAuthFailure extends AuthFailure {
     required this.code,
     required String message,
     this.fields,
+    this.retryAfterSeconds,
   }) : super(message);
 
   final int statusCode;
   final String code;
   final Map<String, dynamic>? fields;
+  final int? retryAfterSeconds;
 }
 
 class RequestTimeoutFailure extends AuthFailure {
