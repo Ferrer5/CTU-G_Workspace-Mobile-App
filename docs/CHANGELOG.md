@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-17 — Password recovery matches the server
+
+- The old School ID and reset-link screen no longer matched the server; it was
+  replaced by the in-app email, code, and new-password flow. No backend,
+  package, or Android changes were made.
+- Validation: `flutter analyze` and `flutter test` passed.
+
 ## 2026-11-15 — Phase 5 password-recovery request
 
 - Added the public forgot-password request screen, CSRF-protected API request,

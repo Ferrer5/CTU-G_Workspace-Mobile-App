@@ -7,14 +7,16 @@ The Flutter app uses Dio in `lib/features/auth/data/`, a repository/controller i
 `lib/app/router.dart`. Startup validates the server session; the minimal landing
 screen displays the server-returned School ID and roles and offers logout.
 
-The client uses these six `/api/v1/` endpoints:
+The client uses these eight `/api/v1/` endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `auth/csrf/` | Bootstrap CSRF cookie/token |
 | POST | `auth/login/` | Sign in with only `school_id` and `password` |
 | POST | `auth/register/` | Submit the nine registration fields; HTTP 202 is required |
-| POST | `auth/forgot-password/` | Request a reset link with School ID and email; HTTP 202 is neutral |
+| POST | `auth/forgot-password/` | Send `{email}`; neutral HTTP 202 with resend and code-validity intervals |
+| POST | `auth/forgot-password/verify/` | Send `{email, code}`; HTTP 200 and sets a single-use HttpOnly ticket cookie |
+| POST | `auth/reset-password/` | Send `{email, password, password_confirmation}` with the ticket cookie; HTTP 200 on success |
 | GET | `auth/session/` | Restore and validate the server session |
 | POST | `auth/logout/` | End the server session |
 
@@ -31,8 +33,9 @@ confirms logout. Startup trusts only the
 decisions. Credentials, cookies, and tokens are not logged or stored as plain
 preferences; the client does not use JWTs.
 
-The public recovery request always shows neutral 202 copy. Its emailed reset
-link opens in a browser; there is no in-app token entry or deep link.
+Password recovery runs fully in the app: email, 6-digit emailed code, then new
+password. Verification stores a single-use HttpOnly ticket cookie for the final step.
+The first step always shows neutral copy, and backend wording is never shown.
 
 ## Startup resilience
 
@@ -92,8 +95,7 @@ passed all 97 tests.
 - Server settings can select a different server at runtime in debug/demo builds;
   the backend must allow its host, listen on an accessible interface, and permit
   traffic through the firewall.
-- The reset itself is completed in the browser from the emailed link; there is
-  no in-app token entry or deep link.
+- Recovery requires the server's ticket cookie from code verification.
 - Logout requires the server to confirm; an offline logout is not reported as
   successful.
 - Release builds block plain HTTP; debug builds allow cleartext to any host for
