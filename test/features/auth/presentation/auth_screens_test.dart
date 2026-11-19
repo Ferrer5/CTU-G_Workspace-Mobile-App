@@ -34,6 +34,7 @@ class _FakeAuthRepository extends AuthRepository {
 
   int loginCalls = 0;
   int registerCalls = 0;
+  RegistrationRequest? lastRegistrationRequest;
   AuthFailure? loginFailure;
   AuthFailure? registerFailure;
   RegistrationVerification verification = const RegistrationVerification(
@@ -70,6 +71,7 @@ class _FakeAuthRepository extends AuthRepository {
   @override
   Future<RegistrationVerification> register(RegistrationRequest request) async {
     registerCalls++;
+    lastRegistrationRequest = request;
     if (registerFailure case final failure?) {
       throw failure;
     }
@@ -310,6 +312,68 @@ void main() {
     );
   });
 
+  testWidgets('sign-up shows school information for students only', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository();
+    await tester.pumpWidget(_app(const SignUpScreen(), repository));
+
+    expect(find.text('03 — School Information'), findsOneWidget);
+    expect(
+      find.text(
+        'Your academic details will be configured later as part of your '
+        'academic profile. These details are not collected during registration.',
+      ),
+      findsOneWidget,
+    );
+    for (final label in ['Course', 'Year Level', 'Section']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('Configured later'), findsNWidgets(3));
+
+    final personalHeading = tester.getTopLeft(
+      find.text('02 — Personal Information'),
+    );
+    final schoolHeading = tester.getTopLeft(
+      find.text('03 — School Information'),
+    );
+    final submitButton = tester.getTopLeft(find.byKey(const Key('signUpSubmit')));
+    expect(personalHeading.dy, lessThan(schoolHeading.dy));
+    expect(schoolHeading.dy, lessThan(submitButton.dy));
+
+    expect(find.byType(TextFormField), findsNWidgets(8));
+    expect(find.byType(TextField), findsNWidgets(8));
+
+    await tester.tap(find.byKey(const Key('requestedRole')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Instructor').last);
+    await tester.pumpAndSettle();
+    expect(find.text('03 — School Information'), findsNothing);
+    expect(find.text('Configured later'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('requestedRole')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Student').last);
+    await tester.pumpAndSettle();
+    expect(find.text('03 — School Information'), findsOneWidget);
+    expect(find.text('Configured later'), findsNWidgets(3));
+  });
+
+  testWidgets('sign-up school information fits a narrow screen at large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _app(const SignUpScreen(), _FakeAuthRepository(), textScale: 1.5),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'sign-in validates required fields and toggles password visibility',
     (tester) async {
@@ -528,6 +592,20 @@ void main() {
         findsOneWidget,
       );
       expect(repository.registerCalls, 1);
+      expect(
+        repository.lastRegistrationRequest!.toJson(),
+        {
+          'school_id': '1234567',
+          'email': 'student@example.edu',
+          'first_name': 'Maria',
+          'middle_name': '',
+          'last_name': 'Santos',
+          'suffix': '',
+          'requested_role': 'Student',
+          'password': 'valid-password',
+          'password_confirmation': 'valid-password',
+        },
+      );
       expect(repository.loginCalls, 0);
       expect(container.read(authControllerProvider).isAuthenticated, isFalse);
     },

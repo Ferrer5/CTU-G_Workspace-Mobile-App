@@ -10,6 +10,7 @@ import 'auth_feedback.dart';
 import 'auth_screen_background.dart';
 import 'auth_screen_header.dart';
 import 'auth_text_field.dart';
+import 'registration_school_information.dart';
 import 'registration_verification_screen.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -464,6 +465,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ? 'Suffix must be 20 characters or fewer.'
                         : null,
                   ),
+                  RegistrationSchoolInformation(role: _requestedRole),
                   if (_feedback != null) ...[
                     const SizedBox(height: 17),
                     AuthFeedback(message: _feedback!),
