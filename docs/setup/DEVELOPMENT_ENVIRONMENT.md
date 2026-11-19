@@ -5,14 +5,46 @@ results, see [Network Setup](NETWORK_SETUP.md),
 [Network Architecture](../architecture/NETWORK_ARCHITECTURE.md), and the
 [Phase 2 Test Report](../testing/PHASE-2-TEST-REPORT.md).
 
+## Daily run routine
+
+Open three PowerShell windows:
+
+1. **Backend:** In the backend repo's `backend` folder, run
+   `python manage.py runserver 0.0.0.0:8000`. Include the emulator's host alias
+   and the laptop's LAN address in `WORKSPACE_ALLOWED_HOSTS`.
+2. **Emulator:** Start `Medium_Phone` with
+   `emulator.exe -avd Medium_Phone -feature -Vulkan -no-snapshot-load -cores 4 -memory 4096`.
+3. **App:** From the mobile repo root, run
+   `flutter run -d emulator-5554 --no-enable-impeller --dart-define-from-file=env\dev.emulator.example.json`.
+
+**REPORTED:** The shorthand `python manage.py runserver 0:8000` failed with
+`getaddrinfo failed` on this Windows machine, so the full address is used.
+
+## Emulator hang on this laptop
+
+**REPORTED:** `Medium_Phone` initially stopped at “hanging thread QEMU2 CPU0”; a
+first attempt with `-gpu swiftshader_indirect` also hung. It ran smoothly with
+the launch command above. The Android emulator reaches the backend through its
+host alias, which must be allowed by `WORKSPACE_ALLOWED_HOSTS`.
+
+If Windows reports multiple emulator instances for the same AVD, check for
+leftover processes with:
+
+```powershell
+Get-Process | Where-Object { $_.ProcessName -match 'qemu|emulator' }
+```
+
+**REPORTED:** `adb` is not on PATH on this laptop; it is under the Android SDK's
+`platform-tools` folder.
+
 ## Verified on 2026-11-12
 
 | Tool | Observed |
 |---|---|
 | OS | Windows 11, 25H2 |
-| Flutter | 3.47.9, stable, `C:\Users\Janrey\develop\flutter` |
+| Flutter | 3.47.9, stable (installation path omitted) |
 | Dart | 3.13.7 |
-| Android SDK | 36.0.0 at `C:\Users\Janrey\AppData\Local\Android\sdk`; Flutter doctor reported Android platform 37.0 and build-tools 36.0 |
+| Android SDK | 36.0.0 (installation path omitted); Flutter doctor reported Android platform 37.0 and build-tools 36.0 |
 | Java selected by Flutter | Android Studio bundled JDK, OpenJDK 25.0.3 at `C:\Program Files\Android\Android Studio\jbr\bin\java` |
 | `java` on terminal PATH | Java 24.0.2; Flutter selected the bundled JDK instead |
 | Git | 2.52.0.windows.1 |
@@ -73,10 +105,10 @@ the agent did not inspect the screen.
 The supplied Flutter path was used directly for this session:
 
 ```powershell
-& 'C:\Users\Janrey\develop\flutter\bin\flutter.bat' pub get
-& 'C:\Users\Janrey\develop\flutter\bin\flutter.bat' analyze
-& 'C:\Users\Janrey\develop\flutter\bin\flutter.bat' test
-& 'C:\Users\Janrey\develop\flutter\bin\flutter.bat' build apk --debug
+& '<Flutter SDK path>\bin\flutter.bat' pub get
+& '<Flutter SDK path>\bin\flutter.bat' analyze
+& '<Flutter SDK path>\bin\flutter.bat' test
+& '<Flutter SDK path>\bin\flutter.bat' build apk --debug
 ```
 
 To run with local configuration, copy `env\dev.example.json` to the ignored

@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-20 — UI fixes and local testing
+
+- **VERIFIED:** `dfedea0` keeps the auth background fixed when the keyboard
+  opens and lets the header title ellipsize; the 411×891 header geometry test
+  matches the baseline within 0.1 px.
+- **VERIFIED:** `490a4c2` logs startup exception type, message, and stack only
+  in debug builds; release logging behavior is unchanged.
+- **REPORTED:** The earlier 39 px overflow occurred in widget tests at 360 px
+  with the wide test font and debug-only gear; other measured layouts did not
+  show it. The local 0.2.1 release APK built without compile-time config showed
+  the fallback screen on a phone and was not released.
+- **VERIFIED:** `AppConfig.fromEnvironment()` requires compiled `APP_ENV` and
+  `API_BASE_URL`; `pubspec.yaml` still reads `0.2.0+1`.
+- **REPORTED:** v0.2.2 has not been released. The intended demo command is
+  `flutter build apk --debug --split-per-abi --dart-define-from-file=env\demo.example.json`.
+- **VERIFIED:** Connection diagnostics for CSRF-cookie retention and clearer
+  transport messages are not implemented.
+- **UNVERIFIED:** Real-phone layout, complete real-backend sign-up and recovery
+  with delivered codes, a real HTTPS certificate test, and the v0.2.2 demo
+  build and release remain open.
+
 ## 2026-11-19 — Sign-up and email verification
 
 - **VERIFIED:** Added the Student-only, display-only School Information note

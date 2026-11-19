@@ -7,18 +7,28 @@ The Flutter app uses Dio in `lib/features/auth/data/`, a repository/controller i
 `lib/app/router.dart`. Startup validates the server session; the minimal landing
 screen displays the server-returned School ID and roles and offers logout.
 
-The client uses these eight `/api/v1/` endpoints:
+The client uses these twelve `/api/v1/` endpoints:
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `auth/csrf/` | Bootstrap CSRF cookie/token |
-| POST | `auth/login/` | Sign in with only `school_id` and `password` |
-| POST | `auth/register/` | Submit the nine registration fields; HTTP 202 is required |
-| POST | `auth/forgot-password/` | Send `{email}`; neutral HTTP 202 with resend and code-validity intervals |
-| POST | `auth/forgot-password/verify/` | Send `{email, code}`; HTTP 200 and sets a single-use HttpOnly ticket cookie |
-| POST | `auth/reset-password/` | Send `{email, password, password_confirmation}` with the ticket cookie; HTTP 200 on success |
-| GET | `auth/session/` | Restore and validate the server session |
-| POST | `auth/logout/` | End the server session |
+| Method | Path | Request | Success |
+|---|---|---|---|
+| GET | `auth/csrf/` | No body | 200 |
+| POST | `auth/login/` | `{school_id, password}` | 200 |
+| POST | `auth/register/` | `{school_id, email, first_name, middle_name, last_name, suffix, requested_role, password, password_confirmation}` | 202 (`verification_required` or `existing_verification`) |
+| GET | `auth/register/verification/` (optional `?requested_role=Instructor`) | No body; staging cookie | 202 (`verification_required` or `existing_verification`) |
+| POST | `auth/register/verify/` (optional `?requested_role=Instructor`) | `{code}`; staging cookie | 200 (`completed`) |
+| POST | `auth/register/resend/` (optional `?requested_role=Instructor`) | `{}`; staging cookie | 202 (`verification_required`) |
+| POST | `auth/register/cancel/` (optional `?requested_role=Instructor`) | `{}`; staging cookie | 200 (`cancelled`) |
+| POST | `auth/forgot-password/` | `{email}` | 202 (neutral response) |
+| POST | `auth/forgot-password/verify/` | `{email, code}` | 200 (`verified`); sets a single-use HttpOnly ticket cookie |
+| POST | `auth/reset-password/` | `{email, password, password_confirmation}`; ticket cookie | 200 |
+| GET | `auth/session/` | No body | 200 (`authenticated` true or false) |
+| POST | `auth/logout/` | `{}` | 200 (`authenticated` false) |
+
+Staged sign-up continues through an HttpOnly cookie scoped to
+`/api/v1/auth/`; it is SameSite Strict and Secure when backend HTTPS is enabled.
+The cookie is deleted after successful verification or cancellation, and
+verification does not create a login session. Completion creates an inactive
+account with `Pending` status for administrative review.
 
 ## Session and security
 
@@ -36,6 +46,15 @@ preferences; the client does not use JWTs.
 Password recovery runs fully in the app: email, 6-digit emailed code, then new
 password. Verification stores a single-use HttpOnly ticket cookie for the final step.
 The first step always shows neutral copy, and backend wording is never shown.
+
+Recovery codes are issued only for active, approved, non-staff, non-superuser
+accounts with an active role and matching email-verification proof; legacy
+accounts without that proof are ineligible, and the read-only Account admin
+does not expose the proof fields. A missing code can have several silent causes,
+including ineligibility or delivery failure; the app cannot distinguish them
+because the response is neutral by design. **REPORTED:** The owner set proof for
+a test account through the Django shell on a local database for local testing
+only; do not use this approach on shared servers.
 
 ## Startup resilience
 
