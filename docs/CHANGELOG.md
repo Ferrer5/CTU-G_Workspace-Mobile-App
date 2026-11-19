@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-11-19 — Sign-up and email verification
+
+- **VERIFIED:** Added the Student-only, display-only School Information note
+  (`7eb70d9`). It adds no form inputs and does not change the nine-field
+  registration request.
+- **VERIFIED:** Changed the sign-up button label to `Proceed Email
+  Verification` (`e3b9163`); the “Already registered? Sign In” row was
+  unchanged.
+- **VERIFIED:** Corrected the registration response contract
+  (`1f08dd4`): registration/status/resend expect HTTP 202 with
+  endpoint-appropriate body statuses; verification and cancellation expect
+  HTTP 200.
+- **REPORTED:** Runtime observation: registration returned HTTP 202 and the
+  status request returned HTTP 202. A successful resend returning HTTP 202 is
+  confirmed by backend source, not runtime; the only resend response observed
+  at runtime was HTTP 503 `delivery_failed`.
+- **REPORTED:** A focused text-scale 2.0 test reported an existing password
+  field overflow, also with the old button label. The current test suite does
+  not cover text scale 2.0.
+- **UNVERIFIED:** The complete real-backend flow with a delivered email, the
+  appearance on a real phone, and Instructor registration.
+- Validation: **VERIFIED** — `flutter analyze --no-pub` printed
+  `No issues found! (ran in 38.2s)`; `flutter test --no-pub` printed
+  `00:20 +116: All tests passed!`.
+
 ## 2026-11-17 — Password recovery matches the server
 
 - The old School ID and reset-link screen no longer matched the server; it was
