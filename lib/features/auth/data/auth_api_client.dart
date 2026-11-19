@@ -57,25 +57,21 @@ class AuthApiClient {
 
   Future<RegistrationVerification> register(RegistrationRequest request) async {
     final response = await _post(registerPath, request.toJson());
-    if (response.statusCode != 202) {
-      throw const InvalidApiResponseFailure();
-    }
-    try {
-      return RegistrationVerification.fromResponse(response.body);
-    } on FormatException {
-      throw const InvalidApiResponseFailure();
-    }
+    return _registrationResult(
+      response,
+      expectedStatusCode: 202,
+      expectedStatuses: const {'verification_required', 'existing_verification'},
+    );
   }
 
   Future<RegistrationVerification> registrationStatus({String? role}) async {
     final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
     final response = await _get('auth/register/verification/$query');
-    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
-    try {
-      return RegistrationVerification.fromResponse(response.body);
-    } on FormatException {
-      throw const InvalidApiResponseFailure();
-    }
+    return _registrationResult(
+      response,
+      expectedStatusCode: 202,
+      expectedStatuses: const {'verification_required', 'existing_verification'},
+    );
   }
 
   Future<RegistrationVerification> verifyRegistrationCode({
@@ -84,12 +80,11 @@ class AuthApiClient {
   }) async {
     final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
     final response = await _post('auth/register/verify/$query', {'code': code});
-    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
-    try {
-      return RegistrationVerification.fromResponse(response.body);
-    } on FormatException {
-      throw const InvalidApiResponseFailure();
-    }
+    return _registrationResult(
+      response,
+      expectedStatusCode: 200,
+      expectedStatuses: const {'completed'},
+    );
   }
 
   Future<RegistrationVerification> resendRegistrationCode({
@@ -97,18 +92,38 @@ class AuthApiClient {
   }) async {
     final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
     final response = await _post('auth/register/resend/$query', const {});
-    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
-    try {
-      return RegistrationVerification.fromResponse(response.body);
-    } on FormatException {
-      throw const InvalidApiResponseFailure();
-    }
+    return _registrationResult(
+      response,
+      expectedStatusCode: 202,
+      expectedStatuses: const {'verification_required'},
+    );
   }
 
   Future<void> cancelRegistration({String? role}) async {
     final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
     final response = await _post('auth/register/cancel/$query', const {});
     if (response.statusCode != 200 || response.body['status'] != 'cancelled') {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  RegistrationVerification _registrationResult(
+    _ApiResponse response, {
+    required int expectedStatusCode,
+    required Set<String> expectedStatuses,
+  }) {
+    if (response.statusCode != expectedStatusCode) {
+      throw const InvalidApiResponseFailure();
+    }
+    try {
+      final result = RegistrationVerification.fromResponse(response.body);
+      if (!expectedStatuses.contains(result.status)) {
+        throw const FormatException(
+          'Unexpected registration verification status.',
+        );
+      }
+      return result;
+    } on FormatException {
       throw const InvalidApiResponseFailure();
     }
   }

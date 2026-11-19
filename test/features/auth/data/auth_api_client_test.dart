@@ -350,7 +350,7 @@ void main() {
           'resends_remaining': 2,
           'attempts_remaining': 4,
           'code_valid_seconds': 600,
-        });
+        }, statusCode: 202);
       });
       final transport = createMockTransport(adapter, storage: storage);
       final firstClient = AuthApiClient(
@@ -372,7 +372,12 @@ void main() {
       );
       final result = await reloadedClient.registrationStatus();
       expect(result.status, 'existing_verification');
+      expect(result.deliverySent, isTrue);
+      expect(result.expiresIn, 1200);
+      expect(result.retryAfter, 45);
+      expect(result.resendsRemaining, 2);
       expect(result.attemptsRemaining, 4);
+      expect(result.codeValidSeconds, 600);
       expect(adapter.requests.map((request) => request.options.method), [
         'GET',
       ]);
@@ -380,6 +385,116 @@ void main() {
       reloadedClient.close();
     },
   );
+
+  test('registration status accepts only 202 with an expected status', () async {
+    final responses = <(int, String)>[
+      (200, 'verification_required'),
+      (202, 'completed'),
+      (202, 'verification_required'),
+    ];
+    final adapter = ScriptedHttpAdapter((request) async {
+      expect(request.options.method, 'GET');
+      expect(
+        request.options.uri.path,
+        endsWith('/register/verification/'),
+      );
+      final response = responses.removeAt(0);
+      return jsonResponse(
+        {
+          'status': response.$2,
+          'delivery_sent': true,
+          'expires_in': 1800,
+          'retry_after': 60,
+          'resends_remaining': 3,
+          'attempts_remaining': 5,
+          'code_valid_seconds': 600,
+        },
+        statusCode: response.$1,
+      );
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    await expectLater(
+      client.registrationStatus(),
+      throwsA(isA<InvalidApiResponseFailure>()),
+    );
+    await expectLater(
+      client.registrationStatus(),
+      throwsA(isA<InvalidApiResponseFailure>()),
+    );
+    final result = await client.registrationStatus();
+
+    expect(result.status, 'verification_required');
+    expect(result.deliverySent, isTrue);
+    expect(result.expiresIn, 1800);
+    expect(result.retryAfter, 60);
+    expect(result.resendsRemaining, 3);
+    expect(result.attemptsRemaining, 5);
+    expect(result.codeValidSeconds, 600);
+    client.close();
+  });
+
+  test('registration verify accepts 200 with completed status', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      expect(request.options.uri.path, endsWith('/register/verify/'));
+      expect(jsonDecode(request.body!), {'code': '123456'});
+      return jsonResponse({'status': 'completed'}, statusCode: 200);
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    final result = await client.verifyRegistrationCode(code: '123456');
+
+    expect(result.status, 'completed');
+    client.close();
+  });
+
+  test('registration resend accepts 202 with verification_required status', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      expect(request.options.uri.path, endsWith('/register/resend/'));
+      expect(request.options.method, 'POST');
+      expect(jsonDecode(request.body!), isEmpty);
+      return jsonResponse(
+        {
+          'status': 'verification_required',
+          'delivery_sent': true,
+          'expires_in': 1800,
+          'retry_after': 60,
+          'resends_remaining': 2,
+          'attempts_remaining': 5,
+          'code_valid_seconds': 600,
+        },
+        statusCode: 202,
+      );
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    final result = await client.resendRegistrationCode();
+
+    expect(result.status, 'verification_required');
+    expect(result.deliverySent, isTrue);
+    expect(result.retryAfter, 60);
+    expect(result.resendsRemaining, 2);
+    client.close();
+  });
 
   test('registration OTP actions use their exact bodies and report structured errors', () async {
     final adapter = ScriptedHttpAdapter((request) async {
@@ -436,7 +551,7 @@ void main() {
           (failure) => failure.retryAfterSeconds,
           'retryAfter',
           37,
-        ),
+        ).having((failure) => failure.code, 'code', 'resend_cooldown'),
       ),
     );
     await client.cancelRegistration();
