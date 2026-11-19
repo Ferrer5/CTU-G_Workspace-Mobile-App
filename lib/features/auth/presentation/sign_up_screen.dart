@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../auth_providers.dart';
 import '../data/auth_failure.dart';
 import '../domain/registration_request.dart';
+import '../domain/registration_verification.dart';
 import 'auth_feedback.dart';
 import 'auth_screen_background.dart';
 import 'auth_screen_header.dart';
 import 'auth_text_field.dart';
+import 'registration_verification_screen.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -119,6 +121,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   String? _backendFieldError(String field) => _fieldErrors[field];
 
   String _failureMessage(AuthFailure failure) {
+    if (failure is BackendAuthFailure && failure.code == 'conflict') {
+      return 'We could not complete this registration. Please check your information or contact support.';
+    }
     if (failure is BackendAuthFailure && failure.statusCode == 429) {
       return 'Too many requests. Please wait a moment and try again.';
     }
@@ -144,16 +149,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     if (failure is! BackendAuthFailure || failure.fields == null) {
       return const {};
     }
-    final errors = <String, String>{};
-    for (final entry in failure.fields!.entries) {
-      final value = entry.value;
-      if (value is String) {
-        errors[entry.key] = value;
-      } else if (value is List && value.isNotEmpty && value.first is String) {
-        errors[entry.key] = value.first as String;
-      }
-    }
-    return errors;
+    const appMessages = <String, String>{
+      'school_id': 'Use 1 to 7 digits only.',
+      'email': 'Enter a valid email address.',
+      'first_name': 'Enter a valid first name.',
+      'middle_name': 'Enter a valid middle name.',
+      'last_name': 'Enter a valid last name.',
+      'suffix': 'Enter a valid suffix.',
+      'password': 'Choose a stronger password using the requirements shown.',
+      'password_confirmation': 'Passwords do not match.',
+    };
+    return {
+      for (final field in failure.fields!.keys)
+        if (appMessages.containsKey(field)) field: appMessages[field]!,
+    };
   }
 
   Future<void> _submit() async {
@@ -167,7 +176,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     });
 
     try {
-      await ref
+      final result = await ref
           .read(authControllerProvider.notifier)
           .register(
             RegistrationRequest(
@@ -182,13 +191,19 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               passwordConfirmation: _confirmationController.text,
             ),
           );
-      if (mounted) {
-        setState(() {
-          _feedback = 'If eligible, your request is pending review.';
-        });
-      }
+      if (mounted) _openVerification(result);
     } on AuthFailure catch (failure) {
       if (mounted) {
+        if (failure is BackendAuthFailure &&
+            failure.code == 'delivery_failed') {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  RegistrationVerificationScreen(role: _requestedRole),
+            ),
+          );
+          return;
+        }
         setState(() {
           _feedback = _failureMessage(failure);
           _fieldErrors = _extractFieldErrors(failure);
@@ -199,6 +214,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  void _openVerification(RegistrationVerification result) {
+    final role = result.requestedRole ?? _requestedRole;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegistrationVerificationScreen(
+          role: role,
+          resumed: result.status == 'existing_verification',
+        ),
+      ),
+    );
   }
 
   Widget _sectionHeading(String text) {

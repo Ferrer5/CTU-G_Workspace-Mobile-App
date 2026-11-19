@@ -247,7 +247,7 @@ void main() {
   );
 
   test(
-    'registration sends exactly the serializer field set and accepts 202',
+    'registration accepts staged 202 without a message and retains its cookie',
     () async {
       final adapter = ScriptedHttpAdapter((request) async {
         if (request.options.uri.path.endsWith('/csrf/')) {
@@ -273,9 +273,23 @@ void main() {
             'password_confirmation',
           },
         );
-        return jsonResponse({
-          'message': 'If eligible, your request is pending review.',
-        }, statusCode: 202);
+        return jsonResponse(
+          {
+            'status': 'verification_required',
+            'delivery_sent': true,
+            'expires_in': 1800,
+            'retry_after': 60,
+            'resends_remaining': 3,
+            'attempts_remaining': 5,
+            'code_valid_seconds': 600,
+          },
+          statusCode: 202,
+          headers: {
+            'set-cookie': [
+              'ctug_student_registration=registration-token-1234567890123456789012345678901234567890; Path=/api/v1/auth/; HttpOnly',
+            ],
+          },
+        );
       });
       final transport = createMockTransport(adapter);
       final client = AuthApiClient(
@@ -297,17 +311,24 @@ void main() {
         ),
       );
 
-      expect(result.message, contains('pending review'));
+      expect(result.status, 'verification_required');
+      expect(result.retryAfter, 60);
+      expect(
+        (await transport.jar.loadForRequest(
+          Uri.parse('https://auth.example.test/api/v1/auth/'),
+        )).map((cookie) => cookie.name),
+        contains('ctug_student_registration'),
+      );
       client.close();
     },
   );
 
   test(
-    'requestPasswordResetCode posts only the email and returns the timing payload',
+    'registration verification status restores from the persistent cookie jar',
     () async {
+      final storage = MemoryCookieStorage();
       final adapter = ScriptedHttpAdapter((request) async {
-        final path = request.options.uri.path;
-        if (path.endsWith('/csrf/')) {
+        if (request.options.uri.path.endsWith('/csrf/')) {
           return jsonResponse(
             {'csrfToken': 'masked'},
             headers: {
@@ -315,96 +336,216 @@ void main() {
             },
           );
         }
-        expect(path, endsWith('/forgot-password/'));
-        expect(request.options.method, 'POST');
-        expect(request.options.headers['X-CSRFToken'], 'csrf-value');
-        expect(request.options.headers['Origin'], 'https://auth.example.test');
-        expect(jsonDecode(request.body!), {'email': 'user@example.edu'});
+        expect(request.options.method, 'GET');
+        expect(request.options.uri.path, endsWith('/register/verification/'));
+        expect(
+          request.options.headers['cookie'],
+          contains('ctug_student_registration=registration-token'),
+        );
         return jsonResponse({
-          'resend_after': 30,
+          'status': 'existing_verification',
+          'delivery_sent': true,
+          'expires_in': 1200,
+          'retry_after': 45,
+          'resends_remaining': 2,
+          'attempts_remaining': 4,
           'code_valid_seconds': 600,
-        }, statusCode: 202);
+        });
       });
-      final transport = createMockTransport(adapter);
-      final client = AuthApiClient(
+      final transport = createMockTransport(adapter, storage: storage);
+      final firstClient = AuthApiClient(
         dio: transport.dio,
         cookieJar: transport.jar,
       );
-
-      final result = await client.requestPasswordResetCode(
-        email: 'user@example.edu',
-      );
-
-      expect(result.resendAfterSeconds, 30);
-      expect(result.codeValidSeconds, 600);
-      expect(adapter.requests.map((request) => request.options.uri.path), [
-        '/api/v1/auth/csrf/',
-        '/api/v1/auth/forgot-password/',
+      final authUri = Uri.parse('https://auth.example.test/api/v1/auth/');
+      await transport.jar.saveFromResponse(authUri, [
+        Cookie('ctug_student_registration', 'registration-token')
+          ..path = '/api/v1/auth/',
       ]);
-      client.close();
-    },
-  );
-
-  test(
-    'verifyPasswordResetCode posts email and code, and confirmPasswordReset sends the ticket cookie',
-    () async {
-      final adapter = ScriptedHttpAdapter((request) async {
-        final path = request.options.uri.path;
-        if (path.endsWith('/csrf/')) {
-          return jsonResponse(
-            {'csrfToken': 'masked'},
-            headers: {
-              'set-cookie': ['csrftoken=csrf-value; Path=/'],
-            },
-          );
-        }
-        if (path.endsWith('/forgot-password/verify/')) {
-          expect(request.options.method, 'POST');
-          expect(jsonDecode(request.body!), {
-            'email': 'user@example.edu',
-            'code': '123456',
-          });
-          return jsonResponse(
-            {'status': 'verified'},
-            statusCode: 200,
-            headers: {'set-cookie': ['ticket=reset-ticket; Path=/']},
-          );
-        }
-        if (path.endsWith('/reset-password/')) {
-          expect(request.options.headers['cookie'], contains('ticket=reset-ticket'));
-          expect(jsonDecode(request.body!), {
-            'email': 'user@example.edu',
-            'password': 'NewPassw0rd!x',
-            'password_confirmation': 'NewPassw0rd!x',
-          });
-          return jsonResponse({'status': 'reset'}, statusCode: 200);
-        }
-        fail('Unexpected endpoint');
-      });
-      final transport = createMockTransport(adapter);
-      final client = AuthApiClient(
+      final reloadedJar = PersistCookieJar(
+        persistSession: true,
+        storage: storage,
+      );
+      final reloadedClient = AuthApiClient(
         dio: transport.dio,
-        cookieJar: transport.jar,
+        cookieJar: reloadedJar,
       );
-
-      await client.verifyPasswordResetCode(
-        email: 'user@example.edu',
-        code: '123456',
-      );
-      await client.confirmPasswordReset(
-        email: 'user@example.edu',
-        password: 'NewPassw0rd!x',
-        passwordConfirmation: 'NewPassw0rd!x',
-      );
-
-      expect(adapter.requests.map((request) => request.options.uri.path), [
-        '/api/v1/auth/csrf/',
-        '/api/v1/auth/forgot-password/verify/',
-        '/api/v1/auth/reset-password/',
+      final result = await reloadedClient.registrationStatus();
+      expect(result.status, 'existing_verification');
+      expect(result.attemptsRemaining, 4);
+      expect(adapter.requests.map((request) => request.options.method), [
+        'GET',
       ]);
-      client.close();
+      firstClient.close();
+      reloadedClient.close();
     },
   );
+
+  test('registration OTP actions use their exact bodies and report structured errors', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      final path = request.options.uri.path;
+      if (path.endsWith('/register/verify/')) {
+        expect(jsonDecode(request.body!), {'code': '123456'});
+        return jsonResponse({
+          'error': {
+            'code': 'otp_invalid',
+            'message': 'Sensitive backend wording',
+          },
+        }, statusCode: 400);
+      }
+      if (path.endsWith('/register/resend/')) {
+        expect(jsonDecode(request.body!), isEmpty);
+        return jsonResponse({
+          'error': {
+            'code': 'resend_cooldown',
+            'message': 'Wait',
+            'retry_after': 37,
+          },
+        }, statusCode: 429);
+      }
+      if (path.endsWith('/register/cancel/')) {
+        expect(jsonDecode(request.body!), isEmpty);
+        return jsonResponse({'status': 'cancelled'});
+      }
+      fail('Unexpected endpoint');
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+    await expectLater(
+      client.verifyRegistrationCode(code: '123456'),
+      throwsA(
+        isA<BackendAuthFailure>().having(
+          (failure) => failure.code,
+          'code',
+          'otp_invalid',
+        ),
+      ),
+    );
+    await expectLater(
+      client.resendRegistrationCode(),
+      throwsA(
+        isA<BackendAuthFailure>().having(
+          (failure) => failure.retryAfterSeconds,
+          'retryAfter',
+          37,
+        ),
+      ),
+    );
+    await client.cancelRegistration();
+    expect(
+      adapter.requests
+          .map((request) => request.options.method)
+          .where((method) => method == 'POST')
+          .length,
+      3,
+    );
+    client.close();
+  });
+
+  test('requestPasswordResetCode posts only the email and returns the timing payload', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      final path = request.options.uri.path;
+      if (path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      expect(path, endsWith('/forgot-password/'));
+      expect(request.options.method, 'POST');
+      expect(request.options.headers['X-CSRFToken'], 'csrf-value');
+      expect(request.options.headers['Origin'], 'https://auth.example.test');
+      expect(jsonDecode(request.body!), {'email': 'user@example.edu'});
+      return jsonResponse({
+        'resend_after': 30,
+        'code_valid_seconds': 600,
+      }, statusCode: 202);
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    final result = await client.requestPasswordResetCode(
+      email: 'user@example.edu',
+    );
+
+    expect(result.resendAfterSeconds, 30);
+    expect(result.codeValidSeconds, 600);
+    expect(adapter.requests.map((request) => request.options.uri.path), [
+      '/api/v1/auth/csrf/',
+      '/api/v1/auth/forgot-password/',
+    ]);
+    client.close();
+  });
+
+  test('verifyPasswordResetCode posts email and code, and confirmPasswordReset sends the ticket cookie', () async {
+    final adapter = ScriptedHttpAdapter((request) async {
+      final path = request.options.uri.path;
+      if (path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      if (path.endsWith('/forgot-password/verify/')) {
+        expect(request.options.method, 'POST');
+        expect(jsonDecode(request.body!), {
+          'email': 'user@example.edu',
+          'code': '123456',
+        });
+        return jsonResponse(
+          {'status': 'verified'},
+          statusCode: 200,
+          headers: {
+            'set-cookie': ['ticket=reset-ticket; Path=/'],
+          },
+        );
+      }
+      if (path.endsWith('/reset-password/')) {
+        expect(
+          request.options.headers['cookie'],
+          contains('ticket=reset-ticket'),
+        );
+        expect(jsonDecode(request.body!), {
+          'email': 'user@example.edu',
+          'password': 'NewPassw0rd!x',
+          'password_confirmation': 'NewPassw0rd!x',
+        });
+        return jsonResponse({'status': 'reset'}, statusCode: 200);
+      }
+      fail('Unexpected endpoint');
+    });
+    final transport = createMockTransport(adapter);
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
+
+    await client.verifyPasswordResetCode(
+      email: 'user@example.edu',
+      code: '123456',
+    );
+    await client.confirmPasswordReset(
+      email: 'user@example.edu',
+      password: 'NewPassw0rd!x',
+      passwordConfirmation: 'NewPassw0rd!x',
+    );
+
+    expect(adapter.requests.map((request) => request.options.uri.path), [
+      '/api/v1/auth/csrf/',
+      '/api/v1/auth/forgot-password/verify/',
+      '/api/v1/auth/reset-password/',
+    ]);
+    client.close();
+  });
 
   test('requestPasswordResetCode reads Retry-After on a 429', () async {
     final adapter = ScriptedHttpAdapter((request) async {
@@ -418,20 +559,16 @@ void main() {
       }
       return jsonResponse(
         {
-          'error': {
-            'code': 'throttled',
-            'message': 'Too many requests',
-          },
+          'error': {'code': 'throttled', 'message': 'Too many requests'},
         },
         statusCode: 429,
-        headers: {'retry-after': ['30']},
+        headers: {
+          'retry-after': ['30'],
+        },
       );
     });
     final transport = createMockTransport(adapter);
-    final client = AuthApiClient(
-      dio: transport.dio,
-      cookieJar: transport.jar,
-    );
+    final client = AuthApiClient(dio: transport.dio, cookieJar: transport.jar);
 
     await expectLater(
       client.requestPasswordResetCode(email: 'user@example.edu'),
@@ -556,62 +693,59 @@ void main() {
     });
   }
 
-  test(
-    'forgot-password maps network errors and rejects invalid verification responses',
-    () async {
-      final networkAdapter = ScriptedHttpAdapter((request) async {
-        if (request.options.uri.path.endsWith('/csrf/')) {
-          return jsonResponse(
-            {'csrfToken': 'masked'},
-            headers: {
-              'set-cookie': ['csrftoken=csrf-value; Path=/'],
-            },
-          );
-        }
-        throw DioException(
-          requestOptions: request.options,
-          type: DioExceptionType.connectionError,
+  test('forgot-password maps network errors and rejects invalid verification responses', () async {
+    final networkAdapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
         );
-      });
-      final networkTransport = createMockTransport(networkAdapter);
-      final networkClient = AuthApiClient(
-        dio: networkTransport.dio,
-        cookieJar: networkTransport.jar,
+      }
+      throw DioException(
+        requestOptions: request.options,
+        type: DioExceptionType.connectionError,
       );
+    });
+    final networkTransport = createMockTransport(networkAdapter);
+    final networkClient = AuthApiClient(
+      dio: networkTransport.dio,
+      cookieJar: networkTransport.jar,
+    );
 
-      await expectLater(
-        networkClient.requestPasswordResetCode(email: 'user@example.edu'),
-        throwsA(isA<NetworkUnavailableFailure>()),
-      );
-      networkClient.close();
+    await expectLater(
+      networkClient.requestPasswordResetCode(email: 'user@example.edu'),
+      throwsA(isA<NetworkUnavailableFailure>()),
+    );
+    networkClient.close();
 
-      final invalidAdapter = ScriptedHttpAdapter((request) async {
-        if (request.options.uri.path.endsWith('/csrf/')) {
-          return jsonResponse(
-            {'csrfToken': 'masked'},
-            headers: {
-              'set-cookie': ['csrftoken=csrf-value; Path=/'],
-            },
-          );
-        }
-        return jsonResponse({'status': 'bad'}, statusCode: 200);
-      });
-      final invalidTransport = createMockTransport(invalidAdapter);
-      final invalidClient = AuthApiClient(
-        dio: invalidTransport.dio,
-        cookieJar: invalidTransport.jar,
-      );
+    final invalidAdapter = ScriptedHttpAdapter((request) async {
+      if (request.options.uri.path.endsWith('/csrf/')) {
+        return jsonResponse(
+          {'csrfToken': 'masked'},
+          headers: {
+            'set-cookie': ['csrftoken=csrf-value; Path=/'],
+          },
+        );
+      }
+      return jsonResponse({'status': 'bad'}, statusCode: 200);
+    });
+    final invalidTransport = createMockTransport(invalidAdapter);
+    final invalidClient = AuthApiClient(
+      dio: invalidTransport.dio,
+      cookieJar: invalidTransport.jar,
+    );
 
-      await expectLater(
-        invalidClient.verifyPasswordResetCode(
-          email: 'user@example.edu',
-          code: '123456',
-        ),
-        throwsA(isA<InvalidApiResponseFailure>()),
-      );
-      invalidClient.close();
-    },
-  );
+    await expectLater(
+      invalidClient.verifyPasswordResetCode(
+        email: 'user@example.edu',
+        code: '123456',
+      ),
+      throwsA(isA<InvalidApiResponseFailure>()),
+    );
+    invalidClient.close();
+  });
 
   for (final status in [400, 401, 403, 429, 503]) {
     test('parses backend error envelope for HTTP $status', () async {

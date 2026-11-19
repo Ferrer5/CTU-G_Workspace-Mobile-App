@@ -7,8 +7,10 @@ import 'package:ctug_mobile/features/auth/data/auth_failure.dart';
 import 'package:ctug_mobile/features/auth/data/auth_repository.dart';
 import 'package:ctug_mobile/features/auth/domain/authenticated_account.dart';
 import 'package:ctug_mobile/features/auth/domain/registration_request.dart';
+import 'package:ctug_mobile/features/auth/domain/registration_verification.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_in_screen.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_up_screen.dart';
+import 'package:ctug_mobile/features/auth/presentation/registration_verification_screen.dart';
 import 'package:ctug_mobile/app/providers.dart';
 import 'package:ctug_mobile/core/config/app_config.dart';
 import 'package:dio/dio.dart';
@@ -33,6 +35,20 @@ class _FakeAuthRepository extends AuthRepository {
   int registerCalls = 0;
   AuthFailure? loginFailure;
   AuthFailure? registerFailure;
+  RegistrationVerification verification = const RegistrationVerification(
+    status: 'verification_required',
+    deliverySent: true,
+    expiresIn: 1800,
+    retryAfter: 0,
+    resendsRemaining: 3,
+    attemptsRemaining: 5,
+  );
+  AuthFailure? verificationFailure;
+  AuthFailure? actionFailure;
+  int statusCalls = 0;
+  int verifyCalls = 0;
+  int resendCalls = 0;
+  int cancelCalls = 0;
   Completer<AuthenticatedAccount>? pendingLogin;
 
   @override
@@ -51,14 +67,44 @@ class _FakeAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<RegistrationAcknowledgement> register(
-    RegistrationRequest request,
-  ) async {
+  Future<RegistrationVerification> register(RegistrationRequest request) async {
     registerCalls++;
     if (registerFailure case final failure?) {
       throw failure;
     }
-    return const RegistrationAcknowledgement('Backend acknowledgement.');
+    return verification;
+  }
+
+  @override
+  Future<RegistrationVerification> registrationStatus({String? role}) async {
+    statusCalls++;
+    if (verificationFailure case final failure?) throw failure;
+    return verification;
+  }
+
+  @override
+  Future<RegistrationVerification> verifyRegistrationCode({
+    required String code,
+    String? role,
+  }) async {
+    verifyCalls++;
+    if (actionFailure case final failure?) throw failure;
+    return const RegistrationVerification(status: 'completed');
+  }
+
+  @override
+  Future<RegistrationVerification> resendRegistrationCode({
+    String? role,
+  }) async {
+    resendCalls++;
+    if (actionFailure case final failure?) throw failure;
+    return verification;
+  }
+
+  @override
+  Future<void> cancelRegistration({String? role}) async {
+    cancelCalls++;
+    if (actionFailure case final failure?) throw failure;
   }
 }
 
@@ -317,35 +363,140 @@ void main() {
     await _fillValidSignUp(tester);
     await _submitSignUp(tester);
 
-    expect(find.text('School ID is already in use.'), findsOneWidget);
+    expect(find.text('Use 1 to 7 digits only.'), findsOneWidget);
+    expect(find.text('School ID is already in use.'), findsNothing);
     expect(find.text('Enter a valid first name.'), findsOneWidget);
     expect(find.text('Passwords do not match.'), findsOneWidget);
     expect(find.text('Sensitive backend wording'), findsNothing);
   });
 
-  testWidgets('sign-up success stays unauthenticated and shows neutral copy', (
+  testWidgets(
+    'sign-up success opens email verification without creating a session',
+    (tester) async {
+      final repository = _FakeAuthRepository();
+      final container = ProviderContainer(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SignUpScreen()),
+        ),
+      );
+      await _fillValidSignUp(tester);
+      await _submitSignUp(tester);
+
+      expect(find.text('Verify your email'), findsWidgets);
+      expect(
+        find.text(
+          'No account has been created yet. Your saved details remain unchanged.',
+        ),
+        findsOneWidget,
+      );
+      expect(repository.registerCalls, 1);
+      expect(repository.loginCalls, 0);
+      expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+    },
+  );
+
+  testWidgets('verification screen restores status when opened', (
     tester,
   ) async {
     final repository = _FakeAuthRepository();
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: SignUpScreen()),
-      ),
+      _app(const RegistrationVerificationScreen(role: 'Student'), repository),
     );
-    await _fillValidSignUp(tester);
-    await _submitSignUp(tester);
+    await tester.pumpAndSettle();
+    expect(repository.statusCalls, 1);
+    expect(find.byKey(const Key('registrationCode')), findsOneWidget);
+    expect(find.text('5 attempts remaining.'), findsOneWidget);
+  });
 
+  testWidgets('verification screen shows expired state when cookie is gone', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..verificationFailure = const BackendAuthFailure(
+        statusCode: 410,
+        code: 'expired',
+        message: 'Sensitive backend wording',
+      );
+    await tester.pumpWidget(
+      _app(const RegistrationVerificationScreen(role: 'Student'), repository),
+    );
+    await tester.pumpAndSettle();
     expect(
-      find.text('If eligible, your request is pending review.'),
+      find.text(
+        'Your saved verification session is unavailable. Start a new registration.',
+      ),
       findsOneWidget,
     );
-    expect(repository.registerCalls, 1);
-    expect(repository.loginCalls, 0);
-    expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+    expect(find.text('Start new registration'), findsOneWidget);
+  });
+
+  testWidgets(
+    'completed verification shows pending review without signing in',
+    (tester) async {
+      final repository = _FakeAuthRepository();
+      final container = ProviderContainer(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: RegistrationVerificationScreen(role: 'Student'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('registrationCode')),
+        '123456',
+      );
+      await tester.tap(find.text('Verify and submit registration'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Your email is verified. Your account is pending administrative review. You can sign in after approval and activation.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Back to Sign In'), findsOneWidget);
+      expect(repository.loginCalls, 0);
+      expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+    },
+  );
+
+  testWidgets('resend wait blocks resend and cancel calls the endpoint', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..verification = const RegistrationVerification(
+        status: 'verification_required',
+        deliverySent: true,
+        expiresIn: 1800,
+        retryAfter: 30,
+        resendsRemaining: 2,
+        attemptsRemaining: 5,
+      );
+    await tester.pumpWidget(
+      _app(const RegistrationVerificationScreen(role: 'Student'), repository),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Resend available in 30 seconds'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Resend code'))
+          .onPressed,
+      isNull,
+    );
+    await tester.ensureVisible(find.text('Cancel registration'));
+    await tester.tap(find.text('Cancel registration'));
+    await tester.pumpAndSettle();
+    expect(repository.cancelCalls, 1);
+    expect(repository.resendCalls, 0);
   });
 }

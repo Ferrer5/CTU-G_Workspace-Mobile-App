@@ -1,5 +1,6 @@
 import '../domain/authenticated_account.dart';
 import '../domain/registration_request.dart';
+import '../domain/registration_verification.dart';
 import 'auth_api_client.dart';
 
 class AuthRepository {
@@ -12,8 +13,22 @@ class AuthRepository {
     required String password,
   }) => _apiClient.login(schoolId: schoolId, password: password);
 
-  Future<RegistrationAcknowledgement> register(RegistrationRequest request) =>
+  Future<RegistrationVerification> register(RegistrationRequest request) =>
       _apiClient.register(request);
+
+  Future<RegistrationVerification> registrationStatus({String? role}) =>
+      _apiClient.registrationStatus(role: role);
+
+  Future<RegistrationVerification> verifyRegistrationCode({
+    required String code,
+    String? role,
+  }) => _apiClient.verifyRegistrationCode(code: code, role: role);
+
+  Future<RegistrationVerification> resendRegistrationCode({String? role}) =>
+      _apiClient.resendRegistrationCode(role: role);
+
+  Future<void> cancelRegistration({String? role}) =>
+      _apiClient.cancelRegistration(role: role);
 
   Future<PasswordResetCodeRequest> requestPasswordResetCode({
     required String email,

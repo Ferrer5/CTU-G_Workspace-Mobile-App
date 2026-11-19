@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth_providers.dart';
-import '../data/auth_api_client.dart';
 import '../data/auth_failure.dart';
 import '../domain/registration_request.dart';
+import '../domain/registration_verification.dart';
 import 'auth_state.dart';
 
 class AuthController extends Notifier<AuthState> {
@@ -79,9 +79,7 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<RegistrationAcknowledgement> register(
-    RegistrationRequest request,
-  ) async {
+  Future<RegistrationVerification> register(RegistrationRequest request) async {
     final generation = _authGeneration;
     try {
       return await ref.read(authRepositoryProvider).register(request);

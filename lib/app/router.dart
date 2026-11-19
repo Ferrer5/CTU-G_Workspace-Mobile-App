@@ -9,6 +9,7 @@ import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/server_settings_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
+import '../features/auth/presentation/registration_verification_screen.dart';
 import 'providers.dart';
 import 'startup_screen.dart';
 
@@ -35,6 +36,7 @@ GoRouter buildRouter({
       final isPublicRoute =
           path == '/sign-in' ||
           path == '/sign-up' ||
+          path == '/sign-up/verify' ||
           path == '/forgot-password' ||
           (serverSettingsEnabled && path == '/server-settings');
 
@@ -71,6 +73,18 @@ GoRouter buildRouter({
       GoRoute(
         path: '/sign-up',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/sign-up/verify',
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] == 'Instructor'
+              ? 'Instructor'
+              : 'Student';
+          return RegistrationVerificationScreen(
+            role: role,
+            resumed: state.uri.queryParameters['resumed'] == '1',
+          );
+        },
       ),
       GoRoute(
         path: '/forgot-password',

@@ -3,6 +3,7 @@ import 'package:ctug_mobile/features/auth/data/auth_api_client.dart';
 import 'package:ctug_mobile/features/auth/data/auth_repository.dart';
 import 'package:ctug_mobile/features/auth/domain/authenticated_account.dart';
 import 'package:ctug_mobile/features/auth/domain/registration_request.dart';
+import 'package:ctug_mobile/features/auth/domain/registration_verification.dart';
 import 'package:dio/dio.dart';
 
 typedef RestoreHandler = Future<AuthenticatedAccount?> Function();
@@ -60,8 +61,10 @@ class TestAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<RegistrationAcknowledgement> register(RegistrationRequest request) =>
-      Future.value(const RegistrationAcknowledgement('Request received.'));
+  Future<RegistrationVerification> register(RegistrationRequest request) =>
+      Future.value(
+        const RegistrationVerification(status: 'verification_required'),
+      );
 
   @override
   Future<void> logout() {

@@ -7,13 +7,8 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../domain/authenticated_account.dart';
 import '../domain/registration_request.dart';
+import '../domain/registration_verification.dart';
 import 'auth_failure.dart';
-
-class RegistrationAcknowledgement {
-  const RegistrationAcknowledgement(this.message);
-
-  final String message;
-}
 
 class PasswordResetCodeRequest {
   const PasswordResetCodeRequest({
@@ -60,15 +55,62 @@ class AuthApiClient {
     return AuthenticatedAccount.fromResponse(response.body);
   }
 
-  Future<RegistrationAcknowledgement> register(
-    RegistrationRequest request,
-  ) async {
+  Future<RegistrationVerification> register(RegistrationRequest request) async {
     final response = await _post(registerPath, request.toJson());
-    final message = response.body['message'];
-    if (response.statusCode != 202 || message is! String || message.isEmpty) {
+    if (response.statusCode != 202) {
       throw const InvalidApiResponseFailure();
     }
-    return RegistrationAcknowledgement(message);
+    try {
+      return RegistrationVerification.fromResponse(response.body);
+    } on FormatException {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  Future<RegistrationVerification> registrationStatus({String? role}) async {
+    final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
+    final response = await _get('auth/register/verification/$query');
+    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
+    try {
+      return RegistrationVerification.fromResponse(response.body);
+    } on FormatException {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  Future<RegistrationVerification> verifyRegistrationCode({
+    required String code,
+    String? role,
+  }) async {
+    final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
+    final response = await _post('auth/register/verify/$query', {'code': code});
+    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
+    try {
+      return RegistrationVerification.fromResponse(response.body);
+    } on FormatException {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  Future<RegistrationVerification> resendRegistrationCode({
+    String? role,
+  }) async {
+    final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
+    final response = await _post('auth/register/resend/$query', const {});
+    if (response.statusCode != 200) throw const InvalidApiResponseFailure();
+    try {
+      return RegistrationVerification.fromResponse(response.body);
+    } on FormatException {
+      throw const InvalidApiResponseFailure();
+    }
+  }
+
+  Future<void> cancelRegistration({String? role}) async {
+    final query = role == 'Instructor' ? '?requested_role=Instructor' : '';
+    final response = await _post('auth/register/cancel/$query', const {});
+    if (response.statusCode != 200 || response.body['status'] != 'cancelled') {
+      throw const InvalidApiResponseFailure();
+    }
   }
 
   Future<PasswordResetCodeRequest> requestPasswordResetCode({
@@ -359,7 +401,8 @@ class AuthApiClient {
       code: code,
       message: message,
       fields: fields as Map<String, dynamic>?,
-      retryAfterSeconds: retryAfter != null && retryAfter >= 0 && retryAfter <= 86400
+      retryAfterSeconds:
+          retryAfter != null && retryAfter >= 0 && retryAfter <= 86400
           ? retryAfter
           : null,
     );
