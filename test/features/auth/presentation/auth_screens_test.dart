@@ -374,6 +374,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('sign-up submit button label and sign-in link are unchanged', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const SignUpScreen(), _FakeAuthRepository()));
+
+    final submit = find.byKey(const Key('signUpSubmit'));
+    expect(
+      find.descendant(
+        of: submit,
+        matching: find.text('Proceed Email Verification'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Create account'), findsNothing);
+    expect(find.text('Already registered?'), findsOneWidget);
+    expect(find.text('Sign In'), findsOneWidget);
+  });
+
+  testWidgets('sign-up submit button fits at text scale 1.5', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    // Text scale 2.0 has a pre-existing password InputDecorator overflow tracked separately.
+    await tester.pumpWidget(
+      _app(const SignUpScreen(), _FakeAuthRepository(), textScale: 1.5),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final buttonRect = tester.getRect(find.byKey(const Key('signUpSubmit')));
+    expect(buttonRect.left, greaterThanOrEqualTo(0));
+    expect(buttonRect.right, lessThanOrEqualTo(360));
+    expect(buttonRect.height, greaterThanOrEqualTo(51));
+  });
+
   testWidgets(
     'sign-in validates required fields and toggles password visibility',
     (tester) async {

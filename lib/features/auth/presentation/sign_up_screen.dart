@@ -491,7 +491,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Create account'),
+                        : const Text('Proceed Email Verification'),
                   ),
                   const SizedBox(height: 13),
                   Center(
