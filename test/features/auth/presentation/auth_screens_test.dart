@@ -9,6 +9,7 @@ import 'package:ctug_mobile/features/auth/domain/authenticated_account.dart';
 import 'package:ctug_mobile/features/auth/domain/registration_request.dart';
 import 'package:ctug_mobile/features/auth/domain/registration_verification.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_in_screen.dart';
+import 'package:ctug_mobile/features/auth/presentation/forgot_password_screen.dart';
 import 'package:ctug_mobile/features/auth/presentation/sign_up_screen.dart';
 import 'package:ctug_mobile/features/auth/presentation/registration_verification_screen.dart';
 import 'package:ctug_mobile/app/providers.dart';
@@ -108,7 +109,23 @@ class _FakeAuthRepository extends AuthRepository {
   }
 }
 
-Widget _app(Widget screen, _FakeAuthRepository repository) {
+Widget _app(
+  Widget screen,
+  _FakeAuthRepository repository, {
+  double? textScale,
+}) {
+  final app = MaterialApp(
+    home: screen,
+    builder: (context, child) {
+      if (textScale == null) return child!;
+      return MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: child!,
+      );
+    },
+  );
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWithValue(
@@ -119,7 +136,7 @@ Widget _app(Widget screen, _FakeAuthRepository repository) {
       ),
       authRepositoryProvider.overrideWithValue(repository),
     ],
-    child: MaterialApp(home: screen),
+    child: app,
   );
 }
 
@@ -149,6 +166,122 @@ Future<void> _submitSignUp(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('auth header geometry stays unchanged at 411x891', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(411, 891);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(_app(const SignInScreen(), _FakeAuthRepository()));
+
+    final logo = tester.getRect(find.byKey(const Key('authBrandLogo')));
+    final title = tester.getRect(find.text('CTU-G WORKSPACE'));
+    final gear = tester.getRect(find.byKey(const Key('serverSettingsAction')));
+
+    expect(logo.left, closeTo(24, 0.1));
+    expect(logo.top, closeTo(28, 0.1));
+    expect(logo.width, closeTo(50, 0.1));
+    expect(title.left, closeTo(85, 0.1));
+    expect(title.top, closeTo(42.5, 0.1));
+    expect(title.width, closeTo(241.5, 0.1));
+    expect(gear.left, closeTo(339, 0.1));
+    expect(gear.top, closeTo(28, 0.1));
+    expect(gear.width, closeTo(48, 0.1));
+  });
+
+  testWidgets('sign-in header does not overflow at 360 with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _app(const SignInScreen(), _FakeAuthRepository(), textScale: 1.5),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final title = tester.widget<Text>(find.text('CTU-G WORKSPACE'));
+    expect(title.maxLines, 1);
+    expect(title.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('auth background and content keep their closed-keyboard layout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(_app(const SignInScreen(), _FakeAuthRepository()));
+
+    final background = find.byType(ImageFiltered);
+    final content = find.byType(SingleChildScrollView);
+    final backgroundBefore = tester.getRect(background);
+    final contentBefore = tester.getRect(content);
+    final bottomPadding = find.descendant(
+      of: find.byType(SafeArea),
+      matching: find.byType(Padding),
+    );
+    expect(tester.widget<Padding>(bottomPadding.first).padding, EdgeInsets.zero);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pump();
+
+    expect(tester.getRect(background), backgroundBefore);
+    expect(tester.getRect(content).height, lessThan(contentBefore.height));
+  });
+
+  testWidgets('auth background image bounds stay fixed with keyboard insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(_app(const SignInScreen(), _FakeAuthRepository()));
+
+    final image = find.byType(ImageFiltered);
+    final before = tester.getRect(image);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+    await tester.pump();
+
+    expect(tester.getRect(image), before);
+  });
+
+  testWidgets('sign-in and forgot password keep focused fields above keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final screenAndField in <(Widget, String)>[
+      (const SignInScreen(), 'password'),
+      (const ForgotPasswordScreen(), 'recoveryEmail'),
+    ]) {
+      tester.view.resetViewInsets();
+      await tester.pumpWidget(_app(screenAndField.$1, _FakeAuthRepository()));
+      final field = find.byKey(Key(screenAndField.$2));
+      await tester.tap(field);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final fieldBottom = tester.getBottomLeft(field).dy;
+      final keyboardTop =
+          640 - tester.view.viewInsets.bottom / tester.view.devicePixelRatio;
+      expect(fieldBottom, lessThanOrEqualTo(keyboardTop));
+    }
+  });
+
   testWidgets('sign-in brand header is top-aligned with a rounded logo', (
     tester,
   ) async {

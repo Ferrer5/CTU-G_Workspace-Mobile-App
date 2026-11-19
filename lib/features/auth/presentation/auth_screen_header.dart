@@ -30,13 +30,20 @@ class AuthScreenHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 11),
-            const Text(
-              'CTU-G WORKSPACE',
-              style: TextStyle(
-                color: Color(0xFF9BE2AA),
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
+            const Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'CTU-G WORKSPACE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF9BE2AA),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
               ),
             ),
           ],

@@ -10,6 +10,7 @@ class AuthScreenBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -25,7 +26,14 @@ class AuthScreenBackground extends StatelessWidget {
           const Positioned.fill(
             child: ColoredBox(color: Color.fromRGBO(3, 14, 11, 0.68)),
           ),
-          SafeArea(child: child),
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: child,
+            ),
+          ),
         ],
       ),
     );
