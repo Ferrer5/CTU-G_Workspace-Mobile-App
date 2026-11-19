@@ -19,8 +19,20 @@ void main() {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      FlutterError.onError = (_) => startupErrorState.report();
-      PlatformDispatcher.instance.onError = (_, _) {
+      FlutterError.onError = (details) {
+        if (kDebugMode) {
+          debugPrint(
+            'Flutter error: ${details.exception.runtimeType}: ${details.exception}',
+          );
+          debugPrintStack(stackTrace: details.stack);
+        }
+        startupErrorState.report();
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        if (kDebugMode) {
+          debugPrint('Platform error: ${error.runtimeType}: $error');
+          debugPrintStack(stackTrace: stack);
+        }
         startupErrorState.report();
         return true;
       };
@@ -48,7 +60,11 @@ void main() {
       );
       appStarted = true;
     },
-    (_, _) {
+    (error, stack) {
+      if (kDebugMode) {
+        debugPrint('Uncaught zone error: ${error.runtimeType}: $error');
+        debugPrintStack(stackTrace: stack);
+      }
       startupErrorState.report();
       if (!appStarted) {
         runApp(const StartupFallbackApp());
